@@ -34,22 +34,15 @@ pub fn expand(args: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
     expand_input(input, &Options::default()).map(|e| e.tokens)
 }
 
-/// Результат раскрытия: код и сведения о полях (нужны `#[model]`, этап 4).
-#[allow(dead_code)]
+/// Результат раскрытия: код и сведения о полях (нужны `#[model]`).
 pub struct Expanded {
     pub tokens: TokenStream,
     pub fields: Vec<FieldInfo>,
 }
 
 /// Поле структуры после разбора атрибутов.
-#[allow(dead_code)]
 pub struct FieldInfo {
     pub ident: syn::Ident,
-    pub ty: Type,
-    pub wire_name: String,
-    pub skip: bool,
-    /// Атрибуты, оставшиеся на поле после разбора (`#[field]` удалён).
-    pub attrs: Vec<Attribute>,
 }
 
 pub fn expand_input(mut input: DeriveInput, options: &Options) -> syn::Result<Expanded> {
@@ -106,10 +99,6 @@ pub fn expand_input(mut input: DeriveInput, options: &Options) -> syn::Result<Ex
 
                 infos.push(FieldInfo {
                     ident: field_ident.clone(),
-                    ty: field.ty.clone(),
-                    wire_name: wire.clone(),
-                    skip: serde.skip,
-                    attrs: field.attrs.clone(),
                 });
                 if serde.skip {
                     continue;

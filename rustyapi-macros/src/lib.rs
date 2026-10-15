@@ -5,6 +5,7 @@
 use proc_macro::TokenStream;
 
 mod main_attr;
+mod model;
 mod route;
 mod schema;
 
@@ -71,6 +72,24 @@ pub fn main(args: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn schema(args: TokenStream, item: TokenStream) -> TokenStream {
     schema::expand(args.into(), item.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+/// Таблица PostgreSQL: `#[schema]` + `FromRow` + трейт `Model` (CRUD и построители запросов).
+///
+/// ```ignore
+/// #[model(table = "todos")]
+/// struct Todo {
+///     #[primary_key]
+///     id: i64,
+///     title: String,
+///     done: bool,
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn model(args: TokenStream, item: TokenStream) -> TokenStream {
+    model::expand(args.into(), item.into())
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
