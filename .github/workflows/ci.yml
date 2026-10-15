@@ -106,8 +106,8 @@ jobs:
           set -e
           curl -fsS localhost:8000/health
           curl -fsS -X POST localhost:8000/users -H 'content-type: application/json' \
-               -d '{"username":"ci","password":"supersecret"}'
-          TOKEN=$(curl -fsS -X POST localhost:8000/token -d 'username=ci&password=supersecret' | jq -r .access_token)
+               -d '{"username":"ci_user","password":"supersecret"}'
+          TOKEN=$(curl -fsS -X POST localhost:8000/token -d 'username=ci_user&password=supersecret' | jq -r .access_token)
           curl -fsS -X POST localhost:8000/links -H "authorization: Bearer $TOKEN" \
                -H 'content-type: application/json' -d '{"url":"https://example.com","code":"ci"}'
           test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/r/ci)" = 307
