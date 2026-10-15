@@ -1,11 +1,15 @@
 [package]
 name = "rustyapi-macros"
-description = "Процедурные макросы RustyAPI: #[get], #[schema], #[model], #[main]"
+description = "Procedural macros for RustyAPI: #[get], #[schema], #[model], #[main]"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+readme = "../README.md"
+keywords = ["web", "framework", "fastapi", "macros"]
+categories = ["web-programming::http-server", "development-tools::procedural-macro-helpers"]
 
 [lib]
 proc-macro = true

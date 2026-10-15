@@ -19,6 +19,8 @@ RustyApi/
 ├── rustyapi-macros/      # proc-macro: #[get], #[schema], #[model], #[main]
 ├── rustyapi-cli/         # бинарь `tez`: new / dev / run / migrate / routes
 ├── examples/todo_api/    # эталонный пример (JWT + PostgreSQL + CRUD)
+├── examples/production/  # продакшен-пример: сокращатель ссылок, Redis, Dockerfile, docker-compose
+├── benchmarks/           # отдельный workspace: RustyAPI / axum / actix / FastAPI, run.py на oha
 └── docs/                 # документация (ru / uz / en)
 ```
 
@@ -31,7 +33,6 @@ axum 0.8 · tokio 1 · tower-http 0.6 · serde/serde_json (preserve_order) · se
 * Роуты: `#[get("/items/{id}")]` превращает функцию в unit-struct (как actix), реализующий трейт `Endpoint` (`info() -> RouteInfo`, `method_router()`). Исходная функция вкладывается в `method_router()` под именем `__rustyapi_handler_<name>`. Регистрация: `router.route(read_item)`.
 * `status_code` эндпоинта — `route_layer` на его `MethodRouter`, меняет только ответ 200. Не `layer`: у слоёного MethodRouter появляется fallback, и `merge` двух методов одного пути паникует.
 * `APIRouter::into_axum` объединяет методы одного пути в один `MethodRouter` и ставит ему fallback 405 JSON (заголовок `Allow` axum добавляет сам). 404 и `redirect_slashes` — fallback всего роутера; для редиректа свой матчер шаблонов путей (`PathMatcher`), обработчики не вызываются.
-* Слои `App::into_router`: снаружи access-лог, затем `CatchPanicLayer` (паника → 500 JSON), затем роуты.
 * `HTTPException` хранит данные в `Box`, чтобы `Result<T, HTTPException>` был маленьким (clippy::result_large_err в пользовательском коде).
 * Ошибки: `rustyapi::Error` — как `anyhow::Error` (blanket `From<E: std::error::Error>`, сам `Error` не реализует). В ответе `HTTPException` достаётся через downcast, остальное — 500 + лог. `rustyapi::Result<T, E = Error>`.
 * `{name:path}` (Starlette) переводится в `{*name}` (axum) при сборке роутера; в `RouteInfo.path` остаётся синтаксис FastAPI.
@@ -62,20 +63,22 @@ axum 0.8 · tokio 1 · tower-http 0.6 · serde/serde_json (preserve_order) · se
 * `Update` принимает дополнительные условия (`.eq("owner_id", uid)`): так пример ограничивает доступ владельцем без гонок.
 * `tez` узнаёт маршруты и OpenAPI у самого приложения: собирает бинарник и запускает с `RUSTYAPI_PRINT=routes|openapi` (обрабатывается в начале `App::run`, до логов и базы).
 * `tez new` делает lib + bin (`app()` в lib.rs), чтобы тесты в `tests/` видели приложение. Новые роутеры вставляются перед меткой `// tez: routers` в `vec![...]` (комментарий внутри литерала rustfmt не ломает). Созданные файлы прогоняются через rustfmt.
-* Пока rustyapi не опубликован, `tez new` по умолчанию ставит зависимость из git; при публикации 0.1.0 поменять `RUSTYAPI_GIT` в `rustyapi-cli/src/scaffold.rs` на версию.
+* Пока rustyapi не опубликован, `tez new` по умолчанию ставит зависимость из git; при публикации 0.1.0 поменять на версию (шаги — `RELEASE.md`).
 * MSRV 1.85: без let-chains (`if let ... && ...` стабильны с 1.88).
 * E2E-тесты CLI (`rustyapi-cli/tests/e2e.rs`) помечены `#[ignore]` и идут отдельной задачей CI; сгенерированные проекты собираются в `target/tez-e2e`.
-* Слои `App::into_router` (снаружи внутрь): access-лог, CatchPanic, timeout, CORS, rate limit, gzip, body limit, фоновые задачи, роуты. Rate limit в памяти процесса; IP из `ConnectInfo` (`TestClient` подставляет 127.0.0.1:50000).
-* `BackgroundTasks` кладётся в extensions слоем; задачи запускаются `tokio::spawn` после ответа со статусом < 400, каждая в своём spawn (паника не отменяет следующие).
+* Слои `App::into_router` (снаружи внутрь): `CoreLayer` (access-лог + фоновые задачи — один написанный вручную tower-сервис, не `from_fn`: так на 8–15% быстрее), CatchPanic (паника → 500 JSON), timeout, CORS, rate limit, gzip, body limit, роуты. Rate limit в памяти процесса; IP из `ConnectInfo` (`TestClient` подставляет 127.0.0.1:50000).
+* `BackgroundTasks` кладётся в extensions `CoreLayer`-ом (`background::begin`/`finish`); задачи запускаются `tokio::spawn` после ответа со статусом < 400, каждая в своём spawn (паника не отменяет следующие).
 * `#[websocket]` — тот же route-макрос: пользовательская функция переименовывается в `__rustyapi_ws_<name>`, обёртка принимает `WebSocketUpgrade` + остальные экстракторы и вызывает `on_upgrade`.
-* `Cache` — enum бэкендов (память / Redis за фичей `redis`), значения в JSON. CI гоняет `--all-features` с сервисом Redis.
+* `Cache` — enum бэкендов (память / Redis за фичей `redis`), значения в JSON. CI гоняет `--all-features` с сервисом Redis. У `ConnectionManager` обязательно таймауты подключения/ответа: без них после пропажи Redis кэш висит до TCP-таймаута ОС.
 * `tez generate client --ts` берёт OpenAPI у приложения (`RUSTYAPI_PRINT=openapi`); имя метода — имя обработчика из operationId (срезается суффикс FastAPI `_<path>_<method>`). Результат проверялся `tsc --strict`.
+* Бенчмарки — отдельный workspace (`exclude` в корневом Cargo.toml), чтобы axum/actix не попадали в Cargo.lock фреймворка. Перезапуск: `cd benchmarks && python3 run.py` (нужны oha, PostgreSQL, Python с fastapi/uvicorn).
+* `examples/production` читает миграции из `MIGRATIONS_DIR` (в образе `/app/migrations`): `App::migrations` читает каталог в рантайме. Dockerfile собирается из корня репозитория (зависимость по пути), итоговый этап без apt-get; healthcheck — `shortener healthcheck`.
 * Обработчик — unit struct с именем функции: локальная переменная с тем же именем (`let stats = ...` внутри `stats`) не компилируется. В примерах называть переменные иначе.
 
 ## Команды
 
 * `cargo build` / `cargo test --workspace`
-* `cargo clippy --workspace -- -D warnings` — должно быть чисто
+* `cargo clippy --workspace --all-targets --all-features -- -D warnings` — должно быть чисто (CI на свежем stable: перед пушем `rustup update`)
 * Тесты БД: нужен `DATABASE_URL` (docker compose up -d в examples/todo_api)
 * `cargo run -p rustyapi-cli -- dev` из папки примера — проверка автоперезапуска
 

@@ -1,0 +1,6 @@
+# Используется BuildKit для Dockerfile рядом (контекст — корень репозитория).
+**/target
+.git
+benchmarks
+**/.env
+**/node_modules

@@ -78,7 +78,14 @@ impl Cache {
     pub async fn redis(url: &str) -> Result<Self> {
         let client =
             redis::Client::open(url).map_err(|e| Error::msg(format!("Redis {url:?}: {e}")))?;
-        let manager = redis::aio::ConnectionManager::new(client)
+        // Без таймаутов переподключение к пропавшему Redis (контейнер перезапущен, сеть упала)
+        // висит до TCP-таймаута ОС, и все запросы к кэшу ждут его вместе.
+        let config = redis::aio::ConnectionManagerConfig::new()
+            .set_connection_timeout(Duration::from_secs(1))
+            .set_response_timeout(Duration::from_secs(2))
+            .set_number_of_retries(2)
+            .set_max_delay(1000);
+        let manager = redis::aio::ConnectionManager::new_with_config(client, config)
             .await
             .map_err(|e| Error::msg(format!("Redis {url:?}: {e}")))?;
         Ok(Self {

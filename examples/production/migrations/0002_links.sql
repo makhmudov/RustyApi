@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS links (
+    id BIGSERIAL PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,
+    url TEXT NOT NULL,
+    clicks BIGINT NOT NULL DEFAULT 0,
+    owner_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS links_owner_id_idx ON links (owner_id);

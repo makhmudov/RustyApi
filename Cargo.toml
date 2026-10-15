@@ -1,19 +1,21 @@
 [workspace]
 resolver = "3"
-members = ["rustyapi", "rustyapi-macros", "rustyapi-cli", "examples/todo_api"]
+members = ["rustyapi", "rustyapi-macros", "rustyapi-cli", "examples/todo_api", "examples/production"]
 exclude = ["benchmarks"]
 
 [workspace.package]
-version = "0.0.1"
+version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/makhmudov/RustyApi"
+homepage = "https://github.com/makhmudov/RustyApi"
+readme = "README.md"
 
 [workspace.dependencies]
 # Внутренние crates
-rustyapi = { path = "rustyapi", version = "0.0.1" }
-rustyapi-macros = { path = "rustyapi-macros", version = "0.0.1" }
+rustyapi = { path = "rustyapi", version = "0.1.0" }
+rustyapi-macros = { path = "rustyapi-macros", version = "0.1.0" }
 
 # Рантайм
 axum = { version = "0.8", features = ["ws", "multipart"] }
