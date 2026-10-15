@@ -1,0 +1,2 @@
+#[rustyapi::main]
+fn main() {}

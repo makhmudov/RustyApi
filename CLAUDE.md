@@ -28,7 +28,13 @@ axum 0.8 · tokio 1 · tower-http 0.6 · serde/serde_json · serde_path_to_error
 
 ## Ключевые технические решения
 
-* Роуты: `#[get("/items/{id}")]` превращает функцию в unit-struct (как actix), реализующий трейт `Endpoint` (method, path, `MethodRouter`, документация OpenAPI). Регистрация: `router.route(read_item)`.
+* Роуты: `#[get("/items/{id}")]` превращает функцию в unit-struct (как actix), реализующий трейт `Endpoint` (`info() -> RouteInfo`, `method_router()`). Исходная функция вкладывается в `method_router()` под именем `__rustyapi_handler_<name>`. Регистрация: `router.route(read_item)`.
+* `status_code` эндпоинта — `route_layer` на его `MethodRouter`, меняет только ответ 200. Не `layer`: у слоёного MethodRouter появляется fallback, и `merge` двух методов одного пути паникует.
+* `APIRouter::into_axum` объединяет методы одного пути в один `MethodRouter` и ставит ему fallback 405 JSON (заголовок `Allow` axum добавляет сам). 404 и `redirect_slashes` — fallback всего роутера; для редиректа свой матчер шаблонов путей (`PathMatcher`), обработчики не вызываются.
+* Слои `App::into_router`: снаружи access-лог, затем `CatchPanicLayer` (паника → 500 JSON), затем роуты.
+* Ошибки: `rustyapi::Error` — как `anyhow::Error` (blanket `From<E: std::error::Error>`, сам `Error` не реализует). В ответе `HTTPException` достаётся через downcast, остальное — 500 + лог. `rustyapi::Result<T, E = Error>`.
+* `{name:path}` (Starlette) переводится в `{*name}` (axum) при сборке роутера; в `RouteInfo.path` остаётся синтаксис FastAPI.
+* Логи: свой `FormatEvent` (`LEVEL:` + отступ до 9 символов), access-лог с target `rustyapi::access`. `logging::init()` не трогает уже установленный пользователем subscriber.
 * OpenAPI — свой генератор на serde_json, без utoipa. Трейт `ApiSchema` реализован для примитивов, String, Vec, Option, HashMap, chrono, uuid, Value и генерируется `#[schema]`. Вложенные типы — `$ref` в components.
 * Автодокументация аргументов через autoref-специализацию: `(&&Probe::<T>::new()).__rustyapi_doc_arg(op)`. Проверено: вызов именно через `&&`. Неизвестные экстракторы молча пропускаются.
 * Экстракторы `Json/Path/Query/Form` — свои newtype над axum: ошибки → 422 в формате FastAPI, путь ошибки через `serde_path_to_error`, затем `Validate`.

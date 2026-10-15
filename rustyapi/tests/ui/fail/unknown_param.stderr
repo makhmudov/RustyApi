@@ -1,0 +1,6 @@
+error: неизвестный параметр `status` / unknown parameter `status`; допустимые / expected one of: status_code, tags, summary, description, deprecated
+       подсказка / help: используйте `status_code = 201`
+ --> tests/ui/fail/unknown_param.rs:3:18
+  |
+3 | #[post("/items", status = 201)]
+  |                  ^^^^^^

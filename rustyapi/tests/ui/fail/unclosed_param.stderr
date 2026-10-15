@@ -1,0 +1,5 @@
+error: незакрытая '{' в пути / unclosed '{' in path "/items/{item_id"
+ --> tests/ui/fail/unclosed_param.rs:3:7
+  |
+3 | #[get("/items/{item_id")]
+  |       ^^^^^^^^^^^^^^^^^

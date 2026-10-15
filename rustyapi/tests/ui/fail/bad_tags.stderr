@@ -1,0 +1,6 @@
+error: `tags` — строка или массив строк / `tags` must be a string or an array of strings
+       подсказка / help: tags = ["items"]
+ --> tests/ui/fail/bad_tags.rs:3:25
+  |
+3 | #[get("/items", tags = [items])]
+  |                         ^^^^^

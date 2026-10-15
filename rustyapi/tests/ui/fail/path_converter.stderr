@@ -1,0 +1,6 @@
+error: конвертер `:int` не поддерживается, только `:path` / only the `:path` converter is supported
+       подсказка / help: тип задаётся экстрактором: Path<i64>
+ --> tests/ui/fail/path_converter.rs:3:7
+  |
+3 | #[get("/items/{item_id:int}")]
+  |       ^^^^^^^^^^^^^^^^^^^^^^

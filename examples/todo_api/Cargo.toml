@@ -9,3 +9,7 @@ publish = false
 
 [dependencies]
 rustyapi.workspace = true
+
+[dev-dependencies]
+tower.workspace = true
+http-body-util.workspace = true

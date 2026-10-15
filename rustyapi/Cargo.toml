@@ -25,3 +25,8 @@ dotenvy.workspace = true
 envy.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+
+[dev-dependencies]
+trybuild.workspace = true
+tower.workspace = true
+http-body-util.workspace = true

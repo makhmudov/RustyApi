@@ -1,0 +1,6 @@
+error: путь должен начинаться с '/' / route path must start with '/': "items/{id}"
+       подсказка / help: "/items/{id}"
+ --> tests/ui/fail/bad_path.rs:3:7
+  |
+3 | #[get("items/{id}")]
+  |       ^^^^^^^^^^^^
