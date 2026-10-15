@@ -1,4 +1,6 @@
 /target
+/benchmarks/target
+__pycache__/
 **/*.rs.bk
 .env
 .DS_Store

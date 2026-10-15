@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = ["rustyapi", "rustyapi-macros", "rustyapi-cli", "examples/todo_api"]
+exclude = ["benchmarks"]
 
 [workspace.package]
 version = "0.0.1"

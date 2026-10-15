@@ -1,9 +1,12 @@
 //! Приложение `App` — аналог `FastAPI()`.
 
 use std::any::Any;
+use std::convert::Infallible;
 use std::future::Future;
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 use axum::body::Bytes;
@@ -399,9 +402,8 @@ impl App {
         if let Some(cache) = layers.cache {
             router = router.layer(axum::Extension(cache));
         }
-        let mut router = router
-            .fallback(move |request: Request| not_found(matcher.clone(), request))
-            .layer(axum::middleware::from_fn(crate::background::layer));
+        let mut router =
+            router.fallback(move |request: Request| not_found(matcher.clone(), request));
         if let Some(limit) = layers.body_limit {
             router = router.layer(DefaultBodyLimit::max(limit));
         }
@@ -455,7 +457,7 @@ impl App {
         }
         router
             .layer(CatchPanicLayer::custom(handle_panic))
-            .layer(axum::middleware::from_fn(access_log))
+            .layer(CoreLayer)
     }
 
     /// Печатает таблицу маршрутов или OpenAPI в stdout (см. [`App::run`]).
@@ -604,24 +606,63 @@ fn handle_panic(payload: Box<dyn Any + Send + 'static>) -> Response {
     internal_server_error()
 }
 
-async fn access_log(request: Request, next: Next) -> impl IntoResponse {
-    let client = request
-        .extensions()
-        .get::<ConnectInfo<SocketAddr>>()
-        .map(|info| info.0);
-    let path = request
-        .uri()
-        .path_and_query()
-        .map_or("/", |pq| pq.as_str())
-        .to_owned();
-    let request_line = format!("{} {path} {:?}", request.method(), request.version());
-    let response = next.run(request).await;
-    tracing::info!(
-        target: ACCESS_TARGET,
-        "{}",
-        logging::access_line(client, &request_line, response.status())
-    );
-    response
+/// Внешний слой: access-лог в стиле uvicorn и фоновые задачи. Свой `tower::Service` вместо
+/// `middleware::from_fn`: без лишних аллокаций на каждый запрос (заметно в бенчмарках).
+#[derive(Debug, Clone, Copy)]
+struct CoreLayer;
+
+impl<S> tower::Layer<S> for CoreLayer {
+    type Service = Core<S>;
+
+    fn layer(&self, inner: S) -> Core<S> {
+        Core { inner }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Core<S> {
+    inner: S,
+}
+
+impl<S> tower::Service<Request> for Core<S>
+where
+    S: tower::Service<Request, Response = Response, Error = Infallible> + Send + 'static,
+    S::Future: Send + 'static,
+{
+    type Response = Response;
+    type Error = Infallible;
+    type Future = Pin<Box<dyn Future<Output = Result<Response, Infallible>> + Send>>;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Infallible>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, mut request: Request) -> Self::Future {
+        // Лог выключен (RUST_LOG=warn) — не тратим время на строку запроса.
+        let log = tracing::enabled!(target: ACCESS_TARGET, tracing::Level::INFO).then(|| {
+            let client = request
+                .extensions()
+                .get::<ConnectInfo<SocketAddr>>()
+                .map(|info| info.0);
+            let path = request.uri().path_and_query().map_or("/", |pq| pq.as_str());
+            let line = format!("{} {path} {:?}", request.method(), request.version());
+            (client, line)
+        });
+        let tasks = crate::background::begin(&mut request);
+        let response = self.inner.call(request);
+        Box::pin(async move {
+            let response = response.await?;
+            crate::background::finish(tasks, response.status());
+            if let Some((client, line)) = log {
+                tracing::info!(
+                    target: ACCESS_TARGET,
+                    "{}",
+                    logging::access_line(client, &line, response.status())
+                );
+            }
+            Ok(response)
+        })
+    }
 }
 
 async fn shutdown_signal() {
