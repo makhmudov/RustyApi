@@ -25,7 +25,7 @@
 
 use argon2::Argon2;
 use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
-use axum::extract::{FromRequest, FromRequestParts, Request};
+use axum::extract::{FromRequest, FromRequestParts, OptionalFromRequestParts, Request};
 use axum::http::request::Parts;
 use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
@@ -234,6 +234,20 @@ impl<S: Send + Sync> FromRequestParts<S> for Auth {
     }
 }
 
+/// `Option<Auth>`: без заголовка — `None` (как `OAuth2PasswordBearer(auto_error=False)`);
+/// неверный или просроченный токен — по-прежнему 401.
+impl<S: Send + Sync> OptionalFromRequestParts<S> for Auth {
+    type Rejection = Response;
+
+    async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Option<Self>, Response> {
+        let Some(token) = bearer_token(parts) else {
+            return Ok(None);
+        };
+        let claims = decode_access_token(&token).map_err(IntoResponse::into_response)?;
+        Ok(Some(Self { claims, token }))
+    }
+}
+
 /// Токен из `Authorization: Bearer <token>` (схема без учёта регистра, как в FastAPI).
 fn bearer_token(parts: &Parts) -> Option<String> {
     let value = parts.headers.get(header::AUTHORIZATION)?.to_str().ok()?;
@@ -248,6 +262,13 @@ impl OpenApiArg for Auth {
         if !operation.security.contains(&requirement) {
             operation.security.push(requirement);
         }
+    }
+}
+
+/// Необязательная авторизация: в `/docs` есть замок (FastAPI делает так же для `auto_error=False`).
+impl OpenApiArg for Option<Auth> {
+    fn doc_arg(operation: &mut Operation, components: &mut Components) {
+        Auth::doc_arg(operation, components);
     }
 }
 

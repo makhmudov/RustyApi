@@ -3,9 +3,11 @@
 use std::any::Any;
 use std::future::Future;
 use std::net::SocketAddr;
+use std::path::PathBuf;
+use std::time::Duration;
 
 use axum::body::Bytes;
-use axum::extract::{ConnectInfo, Request};
+use axum::extract::{ConnectInfo, DefaultBodyLimit, Request};
 use axum::http::{HeaderValue, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::{Html, IntoResponse, Response};
@@ -13,6 +15,13 @@ use axum::routing::get;
 use serde_json::Value;
 use tokio::net::TcpListener;
 use tower_http::catch_panic::CatchPanicLayer;
+use tower_http::compression::CompressionLayer;
+use tower_http::compression::predicate::SizeAbove;
+use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer};
+use tower_http::services::ServeDir;
+
+use crate::cache::Cache;
+use crate::ratelimit::{Limiter, RateLimit};
 
 use crate::db::{self, Db};
 use crate::error::{Error, HTTPException, Result, internal_server_error};
@@ -49,6 +58,25 @@ pub struct App {
     database: Option<Result<Db, String>>,
     migrations: Option<String>,
     token_url: String,
+    layers: Layers,
+}
+
+/// Встроенные middleware и статика.
+#[derive(Debug, Clone, Default)]
+struct Layers {
+    cors: Option<Cors>,
+    gzip: bool,
+    body_limit: Option<usize>,
+    timeout: Option<Duration>,
+    rate_limit: Option<RateLimit>,
+    cache: Option<Cache>,
+    mounts: Vec<(String, PathBuf)>,
+}
+
+#[derive(Debug, Clone)]
+enum Cors {
+    AllowAll,
+    Origins(Vec<String>),
 }
 
 /// Адреса документации (как `openapi_url`, `docs_url`, `redoc_url` в FastAPI).
@@ -98,7 +126,67 @@ impl App {
             database: None,
             migrations: None,
             token_url: "/token".to_owned(),
+            layers: Layers::default(),
         }
+    }
+
+    /// CORS для любых источников, методов и заголовков (как `allow_origins=["*"]`). Удобно для
+    /// разработки; в продакшене лучше [`App::cors_origins`].
+    pub fn cors_allow_all(mut self) -> Self {
+        self.layers.cors = Some(Cors::AllowAll);
+        self
+    }
+
+    /// CORS только для перечисленных источников (`["https://example.com"]`), с cookies.
+    pub fn cors_origins<I, T>(mut self, origins: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<String>,
+    {
+        self.layers.cors = Some(Cors::Origins(origins.into_iter().map(Into::into).collect()));
+        self
+    }
+
+    /// Сжатие ответов gzip (если клиент поддерживает и ответ больше 500 байт, как `GZipMiddleware`).
+    pub fn gzip(mut self) -> Self {
+        self.layers.gzip = true;
+        self
+    }
+
+    /// Максимальный размер тела запроса в байтах (по умолчанию 2 МБ); больше — 413.
+    pub fn body_limit(mut self, bytes: usize) -> Self {
+        self.layers.body_limit = Some(bytes);
+        self
+    }
+
+    /// Таймаут обработки запроса; не успели — `504 {"detail": "Gateway Timeout"}`.
+    pub fn timeout(mut self, timeout: Duration) -> Self {
+        self.layers.timeout = Some(timeout);
+        self
+    }
+
+    /// Ограничение частоты запросов по IP: `.rate_limit(RateLimit::per_minute(60))`.
+    pub fn rate_limit(mut self, limit: RateLimit) -> Self {
+        self.layers.rate_limit = Some(limit);
+        self
+    }
+
+    /// Кэш для экстрактора `cache: Cache` (`Cache::memory()` или `Cache::redis(url).await?`).
+    pub fn cache(mut self, cache: Cache) -> Self {
+        self.layers.cache = Some(cache);
+        self
+    }
+
+    /// Раздаёт файлы из каталога: `.mount("/static", "static")` (как `app.mount(..., StaticFiles)`).
+    /// Нет файла — `404 {"detail": "Not Found"}`.
+    pub fn mount(mut self, path: impl Into<String>, dir: impl Into<PathBuf>) -> Self {
+        let path = path.into();
+        assert!(
+            path.starts_with('/') && path.len() > 1 && !path.ends_with('/'),
+            "mount: путь вида \"/static\" / mount path must look like \"/static\", got {path:?}"
+        );
+        self.layers.mounts.push((path, dir.into()));
+        self
     }
 
     /// Адрес выдачи токена для кнопки Authorize в `/docs` (`tokenUrl` схемы `OAuth2PasswordBearer`,
@@ -263,6 +351,7 @@ impl App {
         let docs = self.docs.clone();
         let title = self.info.title.clone();
         let database = self.db().cloned();
+        let layers = self.layers.clone();
         if let Some(Err(e)) = &self.database {
             tracing::error!("{e}");
         }
@@ -298,11 +387,73 @@ impl App {
                 matcher.add(redoc_url);
             }
         }
+        for (path, dir) in &layers.mounts {
+            let files = ServeDir::new(dir).not_found_service(get(|| async {
+                HTTPException::from_status(StatusCode::NOT_FOUND).into_response()
+            }));
+            router = router.nest_service(path, files);
+        }
         if let Some(db) = database {
             router = router.layer(axum::Extension(db));
         }
-        router
+        if let Some(cache) = layers.cache {
+            router = router.layer(axum::Extension(cache));
+        }
+        let mut router = router
             .fallback(move |request: Request| not_found(matcher.clone(), request))
+            .layer(axum::middleware::from_fn(crate::background::layer));
+        if let Some(limit) = layers.body_limit {
+            router = router.layer(DefaultBodyLimit::max(limit));
+        }
+        if layers.gzip {
+            router = router.layer(
+                CompressionLayer::new()
+                    .gzip(true)
+                    .compress_when(SizeAbove::new(500)),
+            );
+        }
+        if let Some(limit) = layers.rate_limit {
+            let limiter = Limiter::new(limit);
+            router = router.layer(axum::middleware::from_fn(move |request, next| {
+                crate::ratelimit::layer(limiter.clone(), request, next)
+            }));
+        }
+        match layers.cors {
+            Some(Cors::AllowAll) => {
+                router = router.layer(
+                    CorsLayer::new()
+                        .allow_origin(AllowOrigin::any())
+                        .allow_methods(AllowMethods::any())
+                        .allow_headers(AllowHeaders::any()),
+                );
+            }
+            Some(Cors::Origins(origins)) => {
+                let origins: Vec<HeaderValue> = origins
+                    .iter()
+                    .filter_map(|o| match HeaderValue::try_from(o.as_str()) {
+                        Ok(value) => Some(value),
+                        Err(_) => {
+                            tracing::error!("CORS: некорректный источник {o:?}");
+                            None
+                        }
+                    })
+                    .collect();
+                router = router.layer(
+                    CorsLayer::new()
+                        .allow_origin(AllowOrigin::list(origins))
+                        .allow_methods(AllowMethods::mirror_request())
+                        .allow_headers(AllowHeaders::mirror_request())
+                        .allow_credentials(true),
+                );
+            }
+            None => {}
+        }
+        if let Some(timeout) = layers.timeout {
+            router = router.layer(axum::middleware::from_fn(move |request, next| {
+                with_timeout(timeout, request, next)
+            }));
+        }
+        router
             .layer(CatchPanicLayer::custom(handle_panic))
             .layer(axum::middleware::from_fn(access_log))
     }
@@ -414,6 +565,13 @@ impl App {
         tracing::info!("Application shutdown complete.");
         tracing::info!("Finished server process [{pid}]");
         Ok(())
+    }
+}
+
+async fn with_timeout(timeout: Duration, request: Request, next: Next) -> Response {
+    match tokio::time::timeout(timeout, next.run(request)).await {
+        Ok(response) => response,
+        Err(_) => HTTPException::from_status(StatusCode::GATEWAY_TIMEOUT).into_response(),
     }
 }
 

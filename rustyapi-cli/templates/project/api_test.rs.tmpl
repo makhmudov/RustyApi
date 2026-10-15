@@ -4,14 +4,15 @@ use rustyapi::prelude::*;
 
 #[rustyapi::tokio::test(crate = "rustyapi::tokio")]
 async fn root_and_health() {
+    let client = common::client(None);
+    let response = client.get("/").await;
+    assert_eq!(response.status(), 200);
     assert_eq!(
-        common::call(None, "GET", "/", None).await,
-        (200, json!({ "message": "Hello from {{crate}}" }))
+        response.json::<Value>(),
+        json!({ "message": "Hello from {{crate}}" })
     );
-    assert_eq!(
-        common::call(None, "GET", "/health", None).await,
-        (200, json!({ "status": "ok" }))
-    );
+    let response = client.get("/health").await;
+    assert_eq!(response.json::<Value>(), json!({ "status": "ok" }));
 }
 
 #[test]

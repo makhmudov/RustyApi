@@ -2,12 +2,8 @@
 
 #![allow(dead_code)]
 
-use http_body_util::BodyExt;
-use rustyapi::axum::body::Body;
-use rustyapi::axum::http::Request;
 use rustyapi::db::Pool;
-use rustyapi::prelude::*;
-use tower::ServiceExt;
+use rustyapi::testing::TestClient;
 
 /// Пул на отдельной схеме тестовой базы с применёнными миграциями.
 /// `None`, если `DATABASE_URL` не задан (тест тогда пропускается).
@@ -36,33 +32,12 @@ pub async fn test_pool(schema: &str) -> Option<Pool> {
     Some(pool)
 }
 
-/// Запрос к приложению: `(статус, JSON-ответ)`.
-pub async fn call(pool: Option<&Pool>, method: &str, uri: &str, body: Option<Value>) -> (u16, Value) {
-    let mut request = Request::builder().method(method).uri(uri);
-    let body = match body {
-        Some(json) => {
-            request = request.header("content-type", "application/json");
-            Body::from(json.to_string())
-        }
-        None => Body::empty(),
-    };
-    // Без базы — ленивый пул на несуществующий сервер: ошибки 422 возникают раньше запросов к БД.
+/// Клиент приложения. Без базы — ленивый пул на несуществующий сервер: ошибки 422 возникают
+/// раньше запросов к БД.
+pub fn client(pool: Option<&Pool>) -> TestClient {
     let pool = match pool {
         Some(pool) => pool.clone(),
         None => rustyapi::db::pool_from_url("postgres://nobody@127.0.0.1:1/none").unwrap(),
     };
-    let response = {{crate_ident}}::app()
-        .database(pool)
-        .into_router()
-        .oneshot(request.body(body).unwrap())
-        .await
-        .unwrap();
-    let status = response.status().as_u16();
-    let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let json = if bytes.is_empty() {
-        Value::Null
-    } else {
-        rustyapi::serde_json::from_slice(&bytes).unwrap()
-    };
-    (status, json)
+    TestClient::new({{crate_ident}}::app().database(pool))
 }

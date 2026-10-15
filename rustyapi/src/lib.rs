@@ -8,18 +8,27 @@ extern crate self as rustyapi;
 
 pub mod app;
 pub mod auth;
+pub mod background;
+pub mod cache;
 pub mod db;
 pub mod depends;
 pub mod error;
 pub mod extract;
 pub mod logging;
 pub mod openapi;
+pub mod ratelimit;
 pub mod routing;
 pub mod schema;
+pub mod settings;
 pub mod status;
+pub mod testing;
+pub mod upload;
+pub mod websocket;
 
 pub use app::App;
 pub use auth::Auth;
+pub use background::BackgroundTasks;
+pub use cache::Cache;
 pub use db::{Db, DbError, Model};
 pub use depends::{Dependency, Depends};
 pub use error::{Error, HTTPException, Result};
@@ -28,17 +37,22 @@ pub use routing::{APIRouter, Endpoint};
 
 // Процедурные макросы.
 pub use rustyapi_macros;
-pub use rustyapi_macros::{delete, get, head, main, model, options, patch, post, put, schema};
+pub use rustyapi_macros::{
+    delete, get, head, main, model, options, patch, post, put, schema, websocket,
+};
 pub use schema::{ApiSchema, Validate, ValidationError};
+pub use settings::settings;
+pub use upload::{MultipartForm, UploadFile};
 
 /// Всё нужное для типичного приложения: `use rustyapi::prelude::*;`.
 pub mod prelude {
     pub use crate::axum::http::StatusCode;
     pub use crate::serde_json::{Value, json};
     pub use crate::{
-        APIRouter, ApiSchema, App, Auth, Db, Dependency, Depends, Form, HTTPException, Json, Model,
-        Path, Query, Result, Validate, ValidationError, delete, get, head, model, options, patch,
-        post, put, schema, status,
+        APIRouter, ApiSchema, App, Auth, BackgroundTasks, Cache, Db, Dependency, Depends, Form,
+        HTTPException, Json, Model, MultipartForm, Path, Query, Result, UploadFile, Validate,
+        ValidationError, delete, get, head, model, options, patch, post, put, schema, status,
+        websocket,
     };
 }
 
@@ -49,12 +63,15 @@ pub use chrono;
 pub use dotenvy;
 pub use envy;
 pub use jsonwebtoken;
+#[cfg(feature = "redis")]
+pub use redis;
 pub use regex;
 pub use serde;
 pub use serde_json;
 pub use serde_path_to_error;
 pub use sqlx;
 pub use tokio;
+pub use tower;
 pub use tower_http;
 pub use tracing;
 pub use tracing_subscriber;

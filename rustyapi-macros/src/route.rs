@@ -257,6 +257,21 @@ pub fn expand(
     args: TokenStream,
     item: TokenStream,
 ) -> syn::Result<TokenStream> {
+    expand_inner(macro_name, method, args, item, false)
+}
+
+/// `#[websocket("/ws")]`: первый аргумент функции — `WebSocket`, остальные — экстракторы.
+pub fn expand_websocket(args: TokenStream, item: TokenStream) -> syn::Result<TokenStream> {
+    expand_inner("websocket", "GET", args, item, true)
+}
+
+fn expand_inner(
+    macro_name: &str,
+    method: &str,
+    args: TokenStream,
+    item: TokenStream,
+    websocket: bool,
+) -> syn::Result<TokenStream> {
     let args: RouteArgs = syn::parse2(args)?;
     let mut func: ItemFn = syn::parse2(item).map_err(|err| {
         syn::Error::new(
@@ -341,12 +356,22 @@ pub fn expand(
     if args.deprecated {
         info = quote!(#info.deprecated(true));
     }
-    if !args.include_in_schema {
+    if !args.include_in_schema || websocket {
+        // WebSocket-эндпоинты в OpenAPI не попадают (как в FastAPI).
         info = quote!(#info.include_in_schema(false));
     }
+    if websocket && func.sig.inputs.is_empty() {
+        return Err(syn::Error::new(
+            func.sig.paren_token.span.join(),
+            "первый аргумент WebSocket-обработчика — `socket: WebSocket` / \
+             the first argument of a websocket handler must be `socket: WebSocket`",
+        ));
+    }
+    // Для WebSocket первый аргумент — сокет, остальные — экстракторы.
+    let skip = usize::from(websocket);
 
     // OpenAPI: аргументы и возвращаемый тип описывают себя через autoref-специализацию.
-    let doc_args = func.sig.inputs.iter().filter_map(|arg| match arg {
+    let doc_args = func.sig.inputs.iter().skip(skip).filter_map(|arg| match arg {
         FnArg::Typed(pat) if !contains_impl_trait(&pat.ty) => {
             let ty = &pat.ty;
             Some(quote!((&&::rustyapi::openapi::__private::Probe::<#ty>::new()).__rustyapi_doc_arg(operation, components);))
@@ -385,19 +410,55 @@ pub fn expand(
     };
 
     // Понятная ошибка, если аргумент — не экстрактор (вместо «Handler is not implemented»).
-    let arg_checks = func.sig.inputs.iter().filter_map(|arg| match arg {
-        FnArg::Typed(pat) => {
-            let ty = &pat.ty;
-            Some(quote_spanned! {ty.span()=>
-                const _: () = ::rustyapi::routing::__private::assert_extractor::<#ty, _>();
-            })
-        }
-        FnArg::Receiver(_) => None,
-    });
+    let arg_checks = func
+        .sig
+        .inputs
+        .iter()
+        .skip(skip)
+        .filter_map(|arg| match arg {
+            FnArg::Typed(pat) => {
+                let ty = &pat.ty;
+                Some(quote_spanned! {ty.span()=>
+                    const _: () = ::rustyapi::routing::__private::assert_extractor::<#ty, _>();
+                })
+            }
+            FnArg::Receiver(_) => None,
+        });
 
     let handler = format_ident!("__rustyapi_handler_{}", ident);
-    func.sig.ident = handler.clone();
     func.vis = syn::Visibility::Inherited;
+    let wrapper = if websocket {
+        let user = format_ident!("__rustyapi_ws_{}", ident);
+        func.sig.ident = user.clone();
+        let (params, names): (Vec<_>, Vec<_>) = func
+            .sig
+            .inputs
+            .iter()
+            .skip(1)
+            .enumerate()
+            .filter_map(|(i, arg)| match arg {
+                FnArg::Typed(pat) => {
+                    let name = format_ident!("__rustyapi_arg{}", i);
+                    let ty = &pat.ty;
+                    Some((quote!(#name: #ty), name))
+                }
+                FnArg::Receiver(_) => None,
+            })
+            .unzip();
+        quote! {
+            async fn #handler(
+                __rustyapi_upgrade: ::rustyapi::websocket::WebSocketUpgrade,
+                #(#params),*
+            ) -> ::rustyapi::axum::response::Response {
+                __rustyapi_upgrade.on_upgrade(move |socket| async move {
+                    let _ = #user(socket, #(#names),*).await;
+                })
+            }
+        }
+    } else {
+        func.sig.ident = handler.clone();
+        quote!()
+    };
 
     Ok(quote! {
         #(#doc_attrs)*
@@ -414,6 +475,7 @@ pub fn expand(
                 #(#arg_checks)*
                 #(#other_attrs)*
                 #func
+                #wrapper
 
                 ::rustyapi::routing::__private::on(
                     ::rustyapi::routing::__private::MethodFilter::#method_ident,

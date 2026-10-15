@@ -62,3 +62,13 @@
   - `tez run`, `tez migrate new|run|revert|status`, `tez generate crud`, `tez routes`.
   - `App::run` понимает `RUSTYAPI_PRINT=routes|openapi`.
   - NOTICE от PostgreSQL не попадают в лог по умолчанию.
+- Этап 7, батарейки:
+  - `App::cors_allow_all`, `cors_origins`, `gzip`, `body_limit`, `timeout` (504), `rate_limit`
+    (`RateLimit`, 429 + `Retry-After`), `mount` (статика), `cache`.
+  - `rustyapi::settings()` — настройки из `.env` и окружения с правилами `#[field]`.
+  - `rustyapi::testing::TestClient` (`json`, `form`, `query`, `bearer`, `multipart`, `.await`).
+  - `BackgroundTasks`, `#[websocket("/path")]`, `UploadFile`, `MultipartForm`.
+  - `Cache`: в памяти или Redis (фича `redis`), `get_or_set`.
+  - `Option<Auth>` — необязательная авторизация.
+  - `tez generate client --ts`: TypeScript-клиент из OpenAPI.
+  - Шаблоны `tez new` и `examples/todo_api` используют `TestClient`; todo_api читает `CORS_ORIGINS`.
