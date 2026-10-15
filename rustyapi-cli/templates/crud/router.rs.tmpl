@@ -1,0 +1,71 @@
+//! CRUD для `/{{plural}}`.
+
+use rustyapi::prelude::*;
+
+use crate::models::{{name}}::{{{Name}}, {{Name}}Create, {{Name}}Update};
+
+/// Пагинация списка.
+#[schema]
+pub struct {{Name}}Page {
+    #[field(default = 100, ge = 1, le = 1000)]
+    pub limit: i64,
+    #[field(default = 0, ge = 0)]
+    pub offset: i64,
+}
+
+/// Список.
+#[get("")]
+async fn list_{{plural}}(db: Db, Query(page): Query<{{Name}}Page>) -> Result<Json<Vec<{{Name}}>>> {
+    let items = {{Name}}::select()
+        .order_by("id")
+        .limit(page.limit)
+        .offset(page.offset)
+        .all(&db)
+        .await?;
+    Ok(Json(items))
+}
+
+/// Один по id.
+#[get("/{id}")]
+async fn read_{{name}}(db: Db, Path(id): Path<i64>) -> Result<Json<{{Name}}>> {
+    Ok(Json({{Name}}::get_or_404(&db, id).await?))
+}
+
+/// Создать.
+#[post("", status_code = 201)]
+async fn create_{{name}}(db: Db, Json(body): Json<{{Name}}Create>) -> Result<Json<{{Name}}>> {
+    let item = {{Name}}::insert().set("name", body.name).execute(&db).await?;
+    Ok(Json(item))
+}
+
+/// Изменить (PATCH: только переданные поля).
+#[patch("/{id}")]
+async fn update_{{name}}(
+    db: Db,
+    Path(id): Path<i64>,
+    Json(body): Json<{{Name}}Update>,
+) -> Result<Json<{{Name}}>> {
+    let item = {{Name}}::update(id)
+        .set_opt("name", body.name)
+        .execute(&db)
+        .await?;
+    Ok(Json(item))
+}
+
+/// Удалить.
+#[delete("/{id}", status_code = 204)]
+async fn delete_{{name}}(db: Db, Path(id): Path<i64>) -> Result<()> {
+    {{Name}}::delete(&db, id).await?;
+    Ok(())
+}
+
+pub fn router() -> APIRouter {
+    APIRouter::new()
+        .prefix("/{{plural}}")
+        .tags(["{{plural}}"])
+        .route(list_{{plural}})
+        .route(read_{{name}})
+        .route(create_{{name}})
+        .route(update_{{name}})
+        .route(delete_{{name}})
+}

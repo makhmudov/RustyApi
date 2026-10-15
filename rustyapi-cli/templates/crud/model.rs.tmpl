@@ -1,0 +1,27 @@
+//! {{Name}}: модель и схемы запросов.
+
+use rustyapi::chrono::{DateTime, Utc};
+use rustyapi::prelude::*;
+
+/// {{Name}}.
+#[model(table = "{{plural}}")]
+pub struct {{Name}} {
+    #[primary_key]
+    pub id: i64,
+    pub name: String,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Создание {{name}}.
+#[schema]
+pub struct {{Name}}Create {
+    #[field(min_length = 1, max_length = 200)]
+    pub name: String,
+}
+
+/// Изменение {{name}}: передаются только меняющиеся поля.
+#[schema]
+pub struct {{Name}}Update {
+    #[field(min_length = 1, max_length = 200)]
+    pub name: Option<String>,
+}

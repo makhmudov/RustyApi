@@ -28,7 +28,14 @@ static ANSI: AtomicBool = AtomicBool::new(false);
 /// пользователем), ничего не делает. Вызывается автоматически из `App::run`.
 pub fn init() {
     let ansi = std::io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none();
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    let rust_log = std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_owned());
+    // NOTICE от PostgreSQL («relation ... already exists, skipping» при миграциях) — шум.
+    let directives = if rust_log.contains("sqlx") {
+        rust_log
+    } else {
+        format!("{rust_log},sqlx::postgres::notice=warn")
+    };
+    let filter = EnvFilter::try_new(&directives).unwrap_or_else(|_| EnvFilter::new("info"));
     let installed = tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_writer(std::io::stderr)

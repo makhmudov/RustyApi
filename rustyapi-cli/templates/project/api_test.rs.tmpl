@@ -1,0 +1,21 @@
+mod common;
+
+use rustyapi::prelude::*;
+
+#[rustyapi::tokio::test(crate = "rustyapi::tokio")]
+async fn root_and_health() {
+    assert_eq!(
+        common::call(None, "GET", "/", None).await,
+        (200, json!({ "message": "Hello from {{crate}}" }))
+    );
+    assert_eq!(
+        common::call(None, "GET", "/health", None).await,
+        (200, json!({ "status": "ok" }))
+    );
+}
+
+#[test]
+fn openapi() {
+    let doc = {{crate_ident}}::app().openapi();
+    assert_eq!(doc["info"]["title"], "{{crate}}");
+}

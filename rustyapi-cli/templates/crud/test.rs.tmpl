@@ -1,0 +1,34 @@
+mod common;
+
+use rustyapi::prelude::*;
+
+#[rustyapi::tokio::test(crate = "rustyapi::tokio")]
+async fn {{plural}}_crud() {
+    let Some(pool) = common::test_pool("test_{{plural}}").await else {
+        return;
+    };
+    let pool = Some(&pool);
+    let (status, item) = common::call(pool, "POST", "/{{plural}}", Some(json!({"name": "first"}))).await;
+    assert_eq!(status, 201);
+    let id = item["id"].as_i64().unwrap();
+
+    let (status, list) = common::call(pool, "GET", "/{{plural}}", None).await;
+    assert_eq!((status, list.as_array().unwrap().len()), (200, 1));
+
+    let (status, item) =
+        common::call(pool, "PATCH", &format!("/{{plural}}/{id}"), Some(json!({"name": "renamed"}))).await;
+    assert_eq!((status, &item["name"]), (200, &json!("renamed")));
+
+    assert_eq!(common::call(pool, "DELETE", &format!("/{{plural}}/{id}"), None).await.0, 204);
+    assert_eq!(
+        common::call(pool, "GET", &format!("/{{plural}}/{id}"), None).await,
+        (404, json!({"detail": "{{Name}} not found"}))
+    );
+}
+
+#[rustyapi::tokio::test(crate = "rustyapi::tokio")]
+async fn {{plural}}_validation() {
+    let (status, body) = common::call(None, "POST", "/{{plural}}", Some(json!({"name": ""}))).await;
+    assert_eq!(status, 422);
+    assert_eq!(body["detail"][0]["loc"], json!(["body", "name"]));
+}

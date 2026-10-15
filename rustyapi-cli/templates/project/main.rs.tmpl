@@ -1,0 +1,7 @@
+//! Точка входа: `tez dev` для разработки, `tez run` для release.
+
+#[rustyapi::main]
+async fn main() -> rustyapi::Result<()> {
+    let _ = rustyapi::dotenvy::dotenv();
+    {{crate_ident}}::app().database_from_env().run().await
+}

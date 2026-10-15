@@ -1,0 +1,19 @@
+//! Служебные эндпоинты.
+
+use rustyapi::prelude::*;
+
+/// Приветствие.
+#[get("/")]
+async fn root() -> Json<Value> {
+    Json(json!({ "message": "Hello from {{crate}}" }))
+}
+
+/// Проверка, что сервис жив.
+#[get("/health", tags = ["system"])]
+async fn health() -> Json<Value> {
+    Json(json!({ "status": "ok" }))
+}
+
+pub fn router() -> APIRouter {
+    APIRouter::new().route(root).route(health)
+}

@@ -1,6 +1,6 @@
 [package]
 name = "rustyapi-cli"
-description = "CLI `tez`: new / dev / run / migrate / routes"
+description = "CLI `tez` for RustyAPI: new / dev / run / migrate / generate / routes"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -14,3 +14,15 @@ path = "src/main.rs"
 [dependencies]
 clap.workspace = true
 notify.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+tokio.workspace = true
+dotenvy.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
+[target.'cfg(unix)'.dev-dependencies]
+libc.workspace = true

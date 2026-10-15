@@ -137,6 +137,16 @@ impl App {
         let Some(dir) = &self.migrations else {
             return Ok(());
         };
+        // Каталог есть, но пуст (новый проект без таблиц) — к базе не подключаемся.
+        // Несуществующий каталог — ошибка ниже (опечатка в пути не должна проходить молча).
+        let empty = std::fs::read_dir(dir).is_ok_and(|entries| {
+            !entries
+                .flatten()
+                .any(|e| e.path().extension().is_some_and(|ext| ext == "sql"))
+        });
+        if empty {
+            return Ok(());
+        }
         let db = match &self.database {
             Some(Ok(db)) => db,
             Some(Err(e)) => return Err(Error::msg(e)),
@@ -297,6 +307,37 @@ impl App {
             .layer(axum::middleware::from_fn(access_log))
     }
 
+    /// Печатает таблицу маршрутов или OpenAPI в stdout (см. [`App::run`]).
+    fn print(&self, what: &str) -> Result<()> {
+        let value = match what {
+            "routes" => Value::Array(
+                self.routes()
+                    .iter()
+                    .map(|r| {
+                        serde_json::json!({
+                            "method": r.method.as_str(),
+                            "path": r.path,
+                            "name": r.name,
+                            "status_code": r.status_code.as_u16(),
+                            "tags": r.tags,
+                            "summary": r.summary,
+                            "deprecated": r.deprecated,
+                            "include_in_schema": r.include_in_schema,
+                        })
+                    })
+                    .collect(),
+            ),
+            "openapi" => self.openapi(),
+            other => {
+                return Err(Error::msg(format!(
+                    "RUSTYAPI_PRINT={other:?}: ожидается routes или openapi / expected routes or openapi"
+                )));
+            }
+        };
+        println!("{value}");
+        Ok(())
+    }
+
     /// Сериализованный OpenAPI (строится один раз при старте).
     fn openapi_json(&self) -> Option<String> {
         self.docs.openapi_url.as_ref()?;
@@ -305,7 +346,14 @@ impl App {
 
     /// Запускает сервер на `HOST:PORT` из переменных окружения (по умолчанию `127.0.0.1:8000`).
     /// Останавливается корректно по Ctrl+C / SIGTERM.
+    ///
+    /// С переменной `RUSTYAPI_PRINT=routes` или `RUSTYAPI_PRINT=openapi` сервер не запускается:
+    /// в stdout печатается JSON таблицы маршрутов или схема OpenAPI (так работают `tez routes`
+    /// и `tez generate client`).
     pub async fn run(self) -> Result<()> {
+        if let Ok(what) = std::env::var("RUSTYAPI_PRINT") {
+            return self.print(&what);
+        }
         logging::init();
         let host = std::env::var("HOST").unwrap_or_else(|_| DEFAULT_HOST.to_owned());
         let port = match std::env::var("PORT") {

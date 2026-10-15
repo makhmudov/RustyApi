@@ -1,0 +1,18 @@
+# {{crate}}
+
+API на [RustyAPI](https://github.com/makhmudov/RustyApi).
+
+```sh
+docker compose up -d        # PostgreSQL
+tez dev                     # сборка, запуск, перезапуск при изменениях
+open http://127.0.0.1:8000/docs
+```
+
+| Команда | Что делает |
+|---|---|
+| `tez generate crud post` | модель, роутер, миграция и тест для `posts` |
+| `tez migrate new <имя>` | новая миграция |
+| `tez migrate run` / `revert` | применить / откатить |
+| `tez routes` | таблица эндпоинтов |
+| `cargo test` | тесты (нужен `DATABASE_URL` для тестов с базой) |
+| `tez run` | release-сборка и запуск |

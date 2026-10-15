@@ -1,0 +1,26 @@
+//! {{crate}}: API на RustyAPI.
+
+pub mod models;
+pub mod routers;
+
+use rustyapi::prelude::*;
+
+/// Все роутеры приложения. `tez generate crud` добавляет сюда новые.
+fn routers() -> Vec<APIRouter> {
+    vec![
+        routers::root::router(),
+        // tez: routers
+    ]
+}
+
+/// Приложение со всеми маршрутами (используется в main.rs и в тестах).
+pub fn app() -> App {
+    let mut app = App::new()
+        .title("{{crate}}")
+        .version(env!("CARGO_PKG_VERSION"))
+        .migrations(concat!(env!("CARGO_MANIFEST_DIR"), "/migrations"));
+    for router in routers() {
+        app = app.include_router(router);
+    }
+    app
+}
