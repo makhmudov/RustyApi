@@ -842,7 +842,10 @@ impl<M: Model> Update<M> {
         }
     }
 
-    /// Выполняет и возвращает обновлённую запись; 404, если её нет.
+    filter_methods!();
+
+    /// Выполняет и возвращает обновлённую запись; 404, если её нет (или она не подходит под
+    /// дополнительные условия, например `.eq("owner_id", user_id)`).
     pub fn execute<'c>(
         self,
         conn: impl Conn<'c>,
@@ -850,20 +853,28 @@ impl<M: Model> Update<M> {
         let mut this = self;
         async move {
             this.filter.check()?;
-            if this.sets.is_empty() {
-                return M::get_or_404(conn, this.id).await;
-            }
             let pk = quote_ident(M::PK);
             let Some(param) = this.filter.bind(this.id.clone()) else {
                 this.filter.check()?;
                 unreachable!()
             };
-            let sql = format!(
-                "UPDATE {} SET {} WHERE {pk} = {param} RETURNING {}",
-                quote_ident(M::TABLE),
-                this.sets.join(", "),
-                column_list::<M>()
-            );
+            this.filter.conditions.insert(0, format!("{pk} = {param}"));
+            let sql = if this.sets.is_empty() {
+                format!(
+                    "SELECT {} FROM {}{}",
+                    column_list::<M>(),
+                    quote_ident(M::TABLE),
+                    this.filter.where_sql()
+                )
+            } else {
+                format!(
+                    "UPDATE {} SET {}{} RETURNING {}",
+                    quote_ident(M::TABLE),
+                    this.sets.join(", "),
+                    this.filter.where_sql(),
+                    column_list::<M>()
+                )
+            };
             sqlx::query_as_with::<_, M, _>(&sql, this.filter.args)
                 .fetch_optional(conn.executor())
                 .await?

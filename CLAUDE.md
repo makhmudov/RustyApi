@@ -56,6 +56,10 @@ axum 0.8 · tokio 1 · tower-http 0.6 · serde/serde_json (preserve_order) · se
 * `Db` кладётся в extensions слоем `Extension` в `App::into_router`; без базы экстрактор отвечает 500 с логом.
 * Транзакции — `AsyncFnOnce(&mut Transaction)` (async closures, Rust 1.85).
 * Тесты БД: своя схема на тест через `?options=-c%20search_path%3D<схема>` в URL; без `DATABASE_URL` тест пропускается.
+* Зависимости: трейт `Dependency` (`resolve(&mut RequestCtx) -> impl Future + Send`, `openapi(op, c)`), экстрактор `Depends<T>` кэширует результат в extensions запроса (как `use_cache=True`). Ошибка экстрактора внутри `ctx.extract()` сохраняет исходный ответ (`RejectionError`).
+* Auth: `Auth` — экстрактор Bearer-токена (HS256, `SECRET_KEY` или `auth::set_secret_key`), 401 `Not authenticated` / `Could not validate credentials` + `WWW-Authenticate: Bearer`, 403 `Not enough permissions` — тексты как в учебнике FastAPI. Роли — поле `roles` в claims (нужен новый логин после смены роли).
+* OpenAPI-схема `OAuth2PasswordBearer` (tokenUrl из `App::oauth2_token_url`, по умолчанию `/token`) добавляется только если её требует хотя бы одна операция. Собственная зависимость документируется через `Dependency::openapi` → `Auth::document`.
+* `Update` принимает дополнительные условия (`.eq("owner_id", uid)`): так пример ограничивает доступ владельцем без гонок.
 
 ## Команды
 

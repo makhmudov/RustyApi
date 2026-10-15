@@ -334,7 +334,13 @@ pub struct SecurityScheme {
 }
 
 /// Собирает документ OpenAPI 3.1.
-pub fn build(info: &AppInfo, routes: &[RouteInfo], security_schemes: &[SecurityScheme]) -> Value {
+pub fn build(
+    info: &AppInfo,
+    routes: &[RouteInfo],
+    security_schemes: &[SecurityScheme],
+    token_url: &str,
+) -> Value {
+    let mut security_schemes = security_schemes.to_vec();
     let mut components = Components::new();
     let mut paths: Map<String, Value> = Map::new();
     let mut needs_validation = false;
@@ -429,6 +435,17 @@ pub fn build(info: &AppInfo, routes: &[RouteInfo], security_schemes: &[SecurityS
         }
         operation.insert("responses".into(), Value::Object(responses));
         if !op.security.is_empty() {
+            let uses_bearer = op
+                .security
+                .iter()
+                .any(|s| s.get(crate::auth::SECURITY_SCHEME).is_some());
+            if uses_bearer
+                && !security_schemes
+                    .iter()
+                    .any(|s| s.name == crate::auth::SECURITY_SCHEME)
+            {
+                security_schemes.push(crate::auth::security_scheme(token_url));
+            }
             operation.insert("security".into(), Value::Array(op.security));
         }
 

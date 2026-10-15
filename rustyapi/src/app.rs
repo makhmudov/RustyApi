@@ -48,6 +48,7 @@ pub struct App {
     security_schemes: Vec<SecurityScheme>,
     database: Option<Result<Db, String>>,
     migrations: Option<String>,
+    token_url: String,
 }
 
 /// Адреса документации (как `openapi_url`, `docs_url`, `redoc_url` в FastAPI).
@@ -96,7 +97,15 @@ impl App {
             security_schemes: Vec::new(),
             database: None,
             migrations: None,
+            token_url: "/token".to_owned(),
         }
+    }
+
+    /// Адрес выдачи токена для кнопки Authorize в `/docs` (`tokenUrl` схемы `OAuth2PasswordBearer`,
+    /// по умолчанию `/token`).
+    pub fn oauth2_token_url(mut self, url: impl Into<String>) -> Self {
+        self.token_url = url.into();
+        self
     }
 
     /// Подключает PostgreSQL по `DATABASE_URL` (пул ленивый: соединения открываются по запросу).
@@ -189,7 +198,12 @@ impl App {
 
     /// Документ OpenAPI 3.1 (то, что отдаёт `/openapi.json`).
     pub fn openapi(&self) -> Value {
-        crate::openapi::build(&self.info, &self.router.routes(), &self.security_schemes)
+        crate::openapi::build(
+            &self.info,
+            &self.router.routes(),
+            &self.security_schemes,
+            &self.token_url,
+        )
     }
 
     /// Название API.

@@ -3,9 +3,13 @@
 //! «Пишется как FastAPI, работает как Rust». Пользователь подключает только `rustyapi`,
 //! всё остальное реэкспортируется отсюда, а код из макросов ссылается только на `::rustyapi::...`.
 
+// Код из наших макросов ссылается на `::rustyapi::...` — и внутри самого crate тоже.
+extern crate self as rustyapi;
+
 pub mod app;
 pub mod auth;
 pub mod db;
+pub mod depends;
 pub mod error;
 pub mod extract;
 pub mod logging;
@@ -15,7 +19,9 @@ pub mod schema;
 pub mod status;
 
 pub use app::App;
+pub use auth::Auth;
 pub use db::{Db, DbError, Model};
+pub use depends::{Dependency, Depends};
 pub use error::{Error, HTTPException, Result};
 pub use extract::{Form, Json, Path, Query};
 pub use routing::{APIRouter, Endpoint};
@@ -30,9 +36,9 @@ pub mod prelude {
     pub use crate::axum::http::StatusCode;
     pub use crate::serde_json::{Value, json};
     pub use crate::{
-        APIRouter, ApiSchema, App, Db, Form, HTTPException, Json, Model, Path, Query, Result,
-        Validate, ValidationError, delete, get, head, model, options, patch, post, put, schema,
-        status,
+        APIRouter, ApiSchema, App, Auth, Db, Dependency, Depends, Form, HTTPException, Json, Model,
+        Path, Query, Result, Validate, ValidationError, delete, get, head, model, options, patch,
+        post, put, schema, status,
     };
 }
 

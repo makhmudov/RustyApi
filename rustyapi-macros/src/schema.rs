@@ -14,7 +14,7 @@ use syn::{
 };
 
 const FIELD_ALLOWED: &str = "min_length, max_length, gt, ge, lt, le, pattern, email, url, \
-                             default, example, title, description";
+                             default, example, title, description, format";
 
 /// Опции для переиспользования из `#[model]`.
 #[derive(Default)]
@@ -488,6 +488,7 @@ fn field_schema(
         bound(&rules.le),
     );
     let pattern = opt(&rules.pattern.as_ref().map(|s| quote!(#s)));
+    let format = opt(&rules.format.as_ref().map(|s| quote!(#s)));
     let email = rules.email;
     let url = rules.url;
     let title = rules.title.clone().unwrap_or_else(|| title_case(wire));
@@ -517,6 +518,7 @@ fn field_schema(
                     pattern: #pattern,
                     email: #email,
                     url: #url,
+                    format: #format,
                 },
                 components,
             );
@@ -858,6 +860,7 @@ struct FieldRules {
     example: Option<Expr>,
     title: Option<String>,
     description: Option<String>,
+    format: Option<String>,
 }
 
 impl FieldRules {
@@ -978,7 +981,7 @@ impl FieldRules {
                 }
                 "default" => self.default = Some(name_value(&meta, &key)?.clone()),
                 "example" | "examples" => self.example = Some(name_value(&meta, &key)?.clone()),
-                "title" | "description" => {
+                "title" | "description" | "format" => {
                     let value = name_value(&meta, &key)?;
                     let Expr::Lit(ExprLit {
                         lit: Lit::Str(s), ..
@@ -989,10 +992,10 @@ impl FieldRules {
                             format!("`{key}` должен быть строкой / `{key}` must be a string"),
                         ));
                     };
-                    if key == "title" {
-                        self.title = Some(s.value());
-                    } else {
-                        self.description = Some(s.value());
+                    match key.as_str() {
+                        "title" => self.title = Some(s.value()),
+                        "format" => self.format = Some(s.value()),
+                        _ => self.description = Some(s.value()),
                     }
                 }
                 _ => {

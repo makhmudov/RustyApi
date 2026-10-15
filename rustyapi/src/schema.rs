@@ -1084,6 +1084,7 @@ pub mod __private {
         pub pattern: Option<&'static str>,
         pub email: bool,
         pub url: bool,
+        pub format: Option<&'static str>,
     }
 
     /// Применяет правила к схеме поля. У `Option<T>` (`anyOf: [T, null]`) — к ветке `T`, как в Pydantic.
@@ -1137,6 +1138,9 @@ pub mod __private {
         if c.url {
             map.insert("format".into(), json!("uri"));
             map.entry("minLength").or_insert(json!(1));
+        }
+        if let Some(format) = c.format {
+            map.insert("format".into(), json!(format));
         }
     }
 
