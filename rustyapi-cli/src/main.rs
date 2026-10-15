@@ -2,7 +2,7 @@
 
 use clap::Parser;
 
-/// Инструмент разработчика для фреймворка Tez.
+/// Инструмент разработчика для фреймворка RustyAPI.
 #[derive(Debug, Parser)]
 #[command(name = "tez", version, about)]
 struct Cli {}

@@ -1,4 +1,4 @@
-# План разработки Tez в Claude Code
+# План разработки RustyAPI в Claude Code
 
 Каждый этап — отдельная сессия Claude Code. Готовые промпты ниже: копируйте их как есть.
 Правило: не переходить к следующему этапу, пока не выполнены критерии готовности.
@@ -10,7 +10,7 @@
 2. В Claude Code: `/init` не нужен — CLAUDE.md уже есть.
 
 **Промпт:**
-> Прочитай CLAUDE.md. Создай Cargo workspace с crates tezapi, tezapi-macros, tez-cli и examples/todo_api
+> Прочитай CLAUDE.md. Создай Cargo workspace с crates rustyapi, rustyapi-macros, rustyapi-cli и examples/todo_api
 > с зависимостями из раздела «Стек». Добавь GitHub Actions: fmt, clippy, test (с сервисом PostgreSQL 16).
 > Пустые модули, чтобы `cargo build` проходил.
 
@@ -26,8 +26,8 @@
 #[get("/")]
 async fn root() -> Json<Value> { Json(json!({"message": "Hello"})) }
 
-#[tezapi::main]
-async fn main() -> tezapi::Result<()> {
+#[rustyapi::main]
+async fn main() -> rustyapi::Result<()> {
     App::new().title("My API").route(root).run().await
 }
 ```
@@ -36,7 +36,7 @@ async fn main() -> tezapi::Result<()> {
 > Этап 1 из ROADMAP.md. Реализуй: `App` (title, version, route, include_router, run на HOST/PORT,
 > по умолчанию 127.0.0.1:8000, graceful shutdown по Ctrl+C/SIGTERM), `APIRouter` (prefix, tags),
 > трейт `Endpoint`, макросы `#[get/post/put/patch/delete]` с параметрами status_code, tags, summary,
-> deprecated, `#[tezapi::main]`. `HTTPException` с ответом `{"detail": ...}`, 404/405 как в FastAPI,
+> deprecated, `#[rustyapi::main]`. `HTTPException` с ответом `{"detail": ...}`, 404/405 как в FastAPI,
 > паника → 500 JSON. Лог запросов в стиле uvicorn. Тесты через trybuild для макросов.
 
 **Готово, когда:** пример отвечает, неизвестный путь даёт `{"detail":"Not Found"}`, ошибка в макросе показывает понятное сообщение.
@@ -62,7 +62,7 @@ struct ItemCreate {
 ```
 
 **Промпт:**
-> Этап 2. Атрибут `#[schema]`: добавляет Serialize/Deserialize (через `::tezapi::serde`, `crate = ...`),
+> Этап 2. Атрибут `#[schema]`: добавляет Serialize/Deserialize (через `::rustyapi::serde`, `crate = ...`),
 > Debug, Clone (если пользователь не указал сам), реализует `Validate` и `ApiSchema`.
 > Правила `#[field(...)]` с именами как в Pydantic: min_length, max_length, gt, ge, lt, le, pattern, email,
 > url, default, example. Option-поля проверяются только если Some. Вложенные схемы валидируются рекурсивно.
@@ -110,7 +110,7 @@ Todo::delete(&db, id).await?;
 **Промпт:**
 > Этап 4. Модуль db: пул sqlx из DATABASE_URL, экстрактор `Db` (Deref на PgPool), автозапуск
 > миграций из ./migrations при старте (опция App). Макрос `#[model(table)]` = `#[schema]` + свой impl
-> FromRow (через `::tezapi::sqlx`) + трейт Model (TABLE, PK, COLUMNS) + методы get, get_or_404, all,
+> FromRow (через `::rustyapi::sqlx`) + трейт Model (TABLE, PK, COLUMNS) + методы get, get_or_404, all,
 > select, insert, update, delete, count. Билдеры на PgArguments, имена колонок проверяются по COLUMNS,
 > операторы из белого списка. `DbError` → HTTPException: RowNotFound=404, unique violation=409,
 > foreign key=409, остальное=500 с логом. Транзакции: `db.transaction(|tx| async { ... })`.
@@ -146,7 +146,7 @@ Todo::delete(&db, id).await?;
 | `tez routes` | таблица всех эндпоинтов |
 
 **Промпт:**
-> Этап 6. tez-cli на clap + notify. `tez dev`: `cargo build --message-format=json-render-diagnostics`,
+> Этап 6. rustyapi-cli на clap + notify. `tez dev`: `cargo build --message-format=json-render-diagnostics`,
 > путь к бинарю берётся из артефакта; старый сервер продолжает работать во время сборки, затем
 > SIGTERM (таймаут 5 с → kill) и запуск нового. Дебаунс 300 мс, игнор target/ и .git/.
 > При ошибке компиляции — красивый вывод и ожидание следующего изменения. Подсказка про mold/lld
@@ -159,7 +159,7 @@ Todo::delete(&db, id).await?;
 ## Этап 7. Батарейки (по 1–2 дня на пункт)
 - CORS (`cors_allow_all`, `cors_origins`), gzip, лимит тела, таймауты
 - Статика: `app.mount("/static", "static")`
-- Настройки: `let s: Settings = tezapi::settings()?` (.env + переменные окружения)
+- Настройки: `let s: Settings = rustyapi::settings()?` (.env + переменные окружения)
 - `TestClient` как в FastAPI: `client.post("/items").json(&body).bearer(token).send().await`
 - Фоновые задачи (`BackgroundTasks`), WebSocket (`#[websocket("/ws")]`)
 - Загрузка файлов (`UploadFile`), Redis-кэш (feature flag), rate limiting
@@ -169,7 +169,7 @@ Todo::delete(&db, id).await?;
 
 ## Этап 8. Качество и релиз (1–2 недели)
 1. Бенчмарки против FastAPI, Axum, Actix (wrk / oha): hello world, JSON, запрос в БД.
-2. Документация: «FastAPI → Tez» (таблица соответствий), туториал на ru/uz/en.
+2. Документация: «FastAPI → RustyAPI» (таблица соответствий), туториал на ru/uz/en.
 3. Пример продакшен-проекта + Dockerfile.
 4. Публикация 0.1.0 на crates.io, анонс (Telegram-сообщества, Reddit r/rust, Habr).
 

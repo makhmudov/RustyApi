@@ -1,6 +1,6 @@
 [package]
-name = "tezapi-macros"
-description = "Процедурные макросы Tez: #[get], #[schema], #[model], #[main]"
+name = "rustyapi-macros"
+description = "Процедурные макросы RustyAPI: #[get], #[schema], #[model], #[main]"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

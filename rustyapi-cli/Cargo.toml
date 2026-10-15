@@ -1,5 +1,5 @@
 [package]
-name = "tez-cli"
+name = "rustyapi-cli"
 description = "CLI `tez`: new / dev / run / migrate / routes"
 version.workspace = true
 edition.workspace = true

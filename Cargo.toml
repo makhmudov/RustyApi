@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["tezapi", "tezapi-macros", "tez-cli", "examples/todo_api"]
+members = ["rustyapi", "rustyapi-macros", "rustyapi-cli", "examples/todo_api"]
 
 [workspace.package]
 version = "0.0.1"
@@ -11,8 +11,8 @@ repository = "https://github.com/makhmudov/RustyApi"
 
 [workspace.dependencies]
 # Внутренние crates
-tezapi = { path = "tezapi", version = "0.0.1" }
-tezapi-macros = { path = "tezapi-macros", version = "0.0.1" }
+rustyapi = { path = "rustyapi", version = "0.0.1" }
+rustyapi-macros = { path = "rustyapi-macros", version = "0.0.1" }
 
 # Рантайм
 axum = "0.8"

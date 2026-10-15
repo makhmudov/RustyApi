@@ -1567,6 +1567,46 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
+name = "rustyapi"
+version = "0.0.1"
+dependencies = [
+ "argon2",
+ "axum",
+ "chrono",
+ "dotenvy",
+ "envy",
+ "jsonwebtoken",
+ "regex",
+ "rustyapi-macros",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "sqlx",
+ "tokio",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "rustyapi-cli"
+version = "0.0.1"
+dependencies = [
+ "clap",
+ "notify",
+]
+
+[[package]]
+name = "rustyapi-macros"
+version = "0.0.1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "ryu"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2039,46 +2079,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tez-cli"
-version = "0.0.1"
-dependencies = [
- "clap",
- "notify",
-]
-
-[[package]]
-name = "tezapi"
-version = "0.0.1"
-dependencies = [
- "argon2",
- "axum",
- "chrono",
- "dotenvy",
- "envy",
- "jsonwebtoken",
- "regex",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "sqlx",
- "tezapi-macros",
- "tokio",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
-
-[[package]]
-name = "tezapi-macros"
-version = "0.0.1"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
 name = "thiserror"
 version = "2.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2157,7 +2157,7 @@ checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
 name = "todo_api"
 version = "0.0.1"
 dependencies = [
- "tezapi",
+ "rustyapi",
 ]
 
 [[package]]

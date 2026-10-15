@@ -1,5 +1,5 @@
 [package]
-name = "tezapi"
+name = "rustyapi"
 description = "Веб-фреймворк на Rust в стиле FastAPI"
 version.workspace = true
 edition.workspace = true
@@ -8,7 +8,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-tezapi-macros.workspace = true
+rustyapi-macros.workspace = true
 axum.workspace = true
 tokio.workspace = true
 tower-http.workspace = true
