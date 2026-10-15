@@ -1,0 +1,16 @@
+[package]
+name = "rustyapi-cli"
+description = "CLI `tez`: new / dev / run / migrate / routes"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "tez"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+notify.workspace = true

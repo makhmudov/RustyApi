@@ -1,4 +1,4 @@
-# Tez
+# RustyAPI
 
 Веб-фреймворк на Rust в стиле FastAPI: «пишется как FastAPI, работает как Rust».
 
