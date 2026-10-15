@@ -23,6 +23,12 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 /// ```
 #[derive(Debug, Clone)]
 pub struct HTTPException {
+    // В коробке: `Result<T, HTTPException>` остаётся маленьким (clippy::result_large_err).
+    inner: Box<ExceptionInner>,
+}
+
+#[derive(Debug, Clone)]
+struct ExceptionInner {
     status_code: StatusCode,
     detail: Value,
     headers: HeaderMap,
@@ -32,9 +38,11 @@ impl HTTPException {
     /// Ошибка со статусом и `detail` (строка, число, `json!({...})` — что угодно, превращаемое в JSON).
     pub fn new(status_code: impl IntoStatusCode, detail: impl Into<Value>) -> Self {
         Self {
-            status_code: status_code.into_status_code(),
-            detail: detail.into(),
-            headers: HeaderMap::new(),
+            inner: Box::new(ExceptionInner {
+                status_code: status_code.into_status_code(),
+                detail: detail.into(),
+                headers: HeaderMap::new(),
+            }),
         }
     }
 
@@ -56,31 +64,32 @@ impl HTTPException {
         let value = HeaderValue::try_from(value).unwrap_or_else(|_| {
             panic!("некорректное значение заголовка / invalid header value: {value:?}")
         });
-        self.headers.append(name, value);
+        self.inner.headers.append(name, value);
         self
     }
 
     /// Статус-код ответа.
     pub fn status_code(&self) -> StatusCode {
-        self.status_code
+        self.inner.status_code
     }
 
     /// Поле `detail` ответа.
     pub fn detail(&self) -> &Value {
-        &self.detail
+        &self.inner.detail
     }
 
     /// Дополнительные заголовки ответа.
     pub fn headers(&self) -> &HeaderMap {
-        &self.headers
+        &self.inner.headers
     }
 }
 
 impl fmt::Display for HTTPException {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.detail {
-            Value::String(s) => write!(f, "{}: {s}", self.status_code.as_u16()),
-            other => write!(f, "{}: {other}", self.status_code.as_u16()),
+        let code = self.inner.status_code.as_u16();
+        match &self.inner.detail {
+            Value::String(s) => write!(f, "{code}: {s}"),
+            other => write!(f, "{code}: {other}"),
         }
     }
 }
@@ -89,8 +98,17 @@ impl std::error::Error for HTTPException {}
 
 impl IntoResponse for HTTPException {
     fn into_response(self) -> Response {
-        let body = axum::Json(json!({ "detail": self.detail }));
-        (self.status_code, self.headers, body).into_response()
+        let ExceptionInner {
+            status_code,
+            detail,
+            headers,
+        } = *self.inner;
+        (
+            status_code,
+            headers,
+            axum::Json(json!({ "detail": detail })),
+        )
+            .into_response()
     }
 }
 

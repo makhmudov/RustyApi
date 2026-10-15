@@ -32,6 +32,7 @@ axum 0.8 · tokio 1 · tower-http 0.6 · serde/serde_json · serde_path_to_error
 * `status_code` эндпоинта — `route_layer` на его `MethodRouter`, меняет только ответ 200. Не `layer`: у слоёного MethodRouter появляется fallback, и `merge` двух методов одного пути паникует.
 * `APIRouter::into_axum` объединяет методы одного пути в один `MethodRouter` и ставит ему fallback 405 JSON (заголовок `Allow` axum добавляет сам). 404 и `redirect_slashes` — fallback всего роутера; для редиректа свой матчер шаблонов путей (`PathMatcher`), обработчики не вызываются.
 * Слои `App::into_router`: снаружи access-лог, затем `CatchPanicLayer` (паника → 500 JSON), затем роуты.
+* `HTTPException` хранит данные в `Box`, чтобы `Result<T, HTTPException>` был маленьким (clippy::result_large_err в пользовательском коде).
 * Ошибки: `rustyapi::Error` — как `anyhow::Error` (blanket `From<E: std::error::Error>`, сам `Error` не реализует). В ответе `HTTPException` достаётся через downcast, остальное — 500 + лог. `rustyapi::Result<T, E = Error>`.
 * `{name:path}` (Starlette) переводится в `{*name}` (axum) при сборке роутера; в `RouteInfo.path` остаётся синтаксис FastAPI.
 * Логи: свой `FormatEvent` (`LEVEL:` + отступ до 9 символов), access-лог с target `rustyapi::access`. `logging::init()` не трогает уже установленный пользователем subscriber.
