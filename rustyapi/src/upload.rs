@@ -131,6 +131,7 @@ impl MultipartForm {
         self.text(name).ok_or_else(|| missing(name))
     }
 
+    #[allow(clippy::result_large_err)] // Response — ответ-ошибка как в экстракторах axum
     async fn read(request: Request) -> Result<Self, Response> {
         let is_multipart = request
             .headers()
