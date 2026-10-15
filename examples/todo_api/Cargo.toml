@@ -1,0 +1,11 @@
+[package]
+name = "todo_api"
+description = "Эталонный пример Tez: JWT + PostgreSQL + CRUD"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+tezapi.workspace = true
