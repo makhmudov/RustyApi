@@ -45,6 +45,10 @@ axum 0.8 · tokio 1 · tower-http 0.6 · serde/serde_json (preserve_order) · se
 * Route-макрос проверяет каждый аргумент через `assert_extractor` — вместо «Handler is not implemented» компилятор называет конкретный аргумент.
 * Паритет 422 с FastAPI: `rustyapi/tests/fastapi_parity.rs` + эталон `tests/fixtures/fastapi_422.{py,json}` (перегенерировать скриптом при изменении кейсов).
 * Swagger UI / ReDoc — HTML с CDN jsdelivr (как FastAPI), без build-скриптов.
+* Route-макрос кладёт в `RouteInfo::openapi` вложенную `fn doc(op, components)`: для каждого аргумента `(&&Probe::<T>::new()).__rustyapi_doc_arg(..)`, для возвращаемого типа `__rustyapi_doc_response`. Типы с `impl Trait` пропускаются (их нельзя подставить в `Probe::<T>`).
+* `Query<T>` раскладывается на параметры по полям схемы; сама схема `T` в components не попадает (как в FastAPI).
+* Паритет OpenAPI: `rustyapi/tests/openapi_parity.rs` + `tests/fixtures/fastapi_openapi.{py,json}`; числа сравниваются как f64.
+* Проверка `/docs` в браузере: CDN jsdelivr в песочнице может быть закрыт — подставлять swagger-ui-dist из npm через `page.route` в Playwright.
 * ORM — лёгкий слой над sqlx: `#[model(table = "...")]` генерирует `FromRow` и CRUD; билдеры `select()/insert()/update()` на `PgArguments` с проверкой имён колонок.
 
 ## Команды

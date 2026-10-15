@@ -27,3 +27,10 @@
   - `ValidationError`, `ErrorDetail`, `LocItem`, `Components`; `Error::downcast_ref`.
   - Понятная ошибка компиляции, если аргумент обработчика не экстрактор.
   - `serde_json` с `preserve_order`: ключи JSON сохраняют порядок (как dict в Python).
+- Этап 3, OpenAPI:
+  - Свой генератор OpenAPI 3.1 (`rustyapi::openapi`), `App::openapi()`; схемы и пути совпадают с FastAPI
+    для эталонного приложения.
+  - `/openapi.json`, `/docs` (Swagger UI), `/redoc`, `/docs/oauth2-redirect`; `App::docs_url`, `redoc_url`,
+    `openapi_url`, `no_docs`, `no_redoc`, `no_openapi`, `security_scheme`.
+  - Параметр маршрута `include_in_schema = false`; `RouteInfo::openapi`, трейты `OpenApiArg`, `OpenApiResponse`.
+  - `HashMap<String, Value>` в схеме — `additionalProperties: true`, как `dict` в Pydantic.
