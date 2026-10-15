@@ -16,4 +16,14 @@
   - `HTTPException` (`{"detail": ...}`, заголовки), `rustyapi::Error`, `rustyapi::Result`, модуль `status`.
   - 404/405 в формате FastAPI, `redirect_slashes` (307), паника → 500 JSON.
   - Логи в стиле uvicorn (`rustyapi::logging`).
-  - `rustyapi::prelude`; `Json`, `Path`, `Query`, `Form` пока реэкспортированы из axum.
+  - `rustyapi::prelude`.
+- Этап 2, схемы и валидация:
+  - `#[schema]` для структур и строковых enum: `Serialize`/`Deserialize` через `::rustyapi::serde`,
+    `Debug`/`Clone` (если не указаны), трейты `Validate` и `ApiSchema`; generic-схемы (`Page_Item_`).
+  - Правила `#[field(...)]`: `min_length`, `max_length`, `gt`, `ge`, `lt`, `le`, `pattern`, `email`, `url`,
+    `default`, `example`, `title`, `description`; serde `rename`/`rename_all`/`skip`/`default`.
+  - Свои экстракторы `Json`, `Path`, `Query`, `Form` (вместо реэкспорта из axum): ошибки 422 в формате
+    Pydantic v2 (`type`, `loc`, `msg`, `input`, `ctx`), путь через `serde_path_to_error`.
+  - `ValidationError`, `ErrorDetail`, `LocItem`, `Components`; `Error::downcast_ref`.
+  - Понятная ошибка компиляции, если аргумент обработчика не экстрактор.
+  - `serde_json` с `preserve_order`: ключи JSON сохраняют порядок (как dict в Python).

@@ -1,0 +1,6 @@
+error: #[schema] поддерживает только структуры с именованными полями / #[schema] supports only structs with named fields
+       подсказка / help: struct Item { name: String }
+ --> tests/ui/fail/schema_tuple_struct.rs:4:14
+  |
+4 | struct Meters(f64);
+  |              ^^^^^

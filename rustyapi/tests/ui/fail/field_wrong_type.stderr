@@ -1,0 +1,21 @@
+error[E0277]: `gt`/`ge`/`lt`/`le` применимы только к числам, а не к `std::string::String` / numeric rules apply to numbers only
+ --> tests/ui/fail/field_wrong_type.rs:6:11
+  |
+6 |     name: String,
+  |           ^^^^^^ the trait `rustyapi::schema::Numeric` is not implemented for `std::string::String`
+  |
+  = help: the following other types implement trait `rustyapi::schema::Numeric`:
+            f32
+            f64
+            i128
+            i16
+            i32
+            i64
+            i8
+            isize
+          and $N others
+note: required by a bound in `rustyapi::schema::__private::compare`
+ --> src/schema.rs
+  |
+  |     pub fn compare<T: Numeric + Serialize>(
+  |                       ^^^^^^^ required by this bound in `compare`

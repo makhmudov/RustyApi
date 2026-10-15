@@ -1,0 +1,33 @@
+error[E0277]: the trait bound `fn(rustyapi::Json<Item>) -> impl std::future::Future<Output = std::string::String> {__rustyapi_handler_create_item}: Handler<_, ()>` is not satisfied
+  --> tests/ui/fail/handler_not_schema.rs:10:10
+   |
+ 9 | #[post("/items")]
+   | ----------------- required by a bound introduced by this call
+10 | async fn create_item(Json(item): Json<Item>) -> String {
+   |          ^^^^^^^^^^^ unsatisfied trait bound
+   |
+   = help: the trait `Handler<_, ()>` is not implemented for fn item `fn(rustyapi::Json<Item>) -> impl std::future::Future<Output = std::string::String> {__rustyapi_handler_create_item}`
+   = note: Consider using `#[axum::debug_handler]` to improve the error message
+note: required by a bound in `rustyapi::routing::__private::on`
+  --> src/routing.rs
+   |
+   |     pub fn on<H, T>(filter: MethodFilter, handler: H, status: Option<StatusCode>) -> MethodRouter
+   |            -- required by a bound in this function
+   |     where
+   |         H: Handler<T, ()>,
+   |            ^^^^^^^^^^^^^^ required by this bound in `on`
+
+error[E0277]: `rustyapi::Json<Item>` нельзя использовать как аргумент обработчика / `rustyapi::Json<Item>` cannot be used as a route handler argument
+  --> tests/ui/fail/handler_not_schema.rs:10:34
+   |
+10 | async fn create_item(Json(item): Json<Item>) -> String {
+   |                                  ^^^^^^^^^^ не экстрактор / not an extractor
+   |
+   = help: the trait `rustyapi::routing::__private::Extractor<_>` is not implemented for `rustyapi::Json<Item>`
+   = note: аргументы: Json<T>, Path<T>, Query<T>, Form<T> и другие экстракторы; для Json/Query/Form/Path тип T должен быть `#[schema]` (или реализовать Deserialize + Validate)
+   = note: arguments must be extractors such as Json<T>, Path<T>, Query<T>, Form<T>; T must be a `#[schema]` type (or implement Deserialize + Validate)
+note: required by a bound in `rustyapi::routing::__private::assert_extractor`
+  --> src/routing.rs
+   |
+   |     pub const fn assert_extractor<T: Extractor<M>, M>() {}
+   |                                      ^^^^^^^^^^^^ required by this bound in `assert_extractor`
