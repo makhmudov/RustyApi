@@ -6,7 +6,7 @@ Rust 1.85+ va Docker (PostgreSQL uchun) kerak.
 ## 1. O'rnatish va yangi loyiha
 
 ```sh
-cargo install --git https://github.com/makhmudov/RustyApi rustyapi-cli   # tez buyrug'i
+cargo install rustyapi-cli   # tez buyrug'i
 tez new notes
 cd notes
 docker compose up -d     # docker-compose.yml'dagi PostgreSQL

@@ -6,10 +6,9 @@
 ## 0.1.0
 
 1. Ветка релиза смержена в `main`, CI зелёный.
-2. `tez new` по умолчанию берёт RustyAPI из git. Перед публикацией переключить на crates.io:
-   в `rustyapi-cli/src/scaffold.rs` ветка `(None, None)` — `format!("{:?}", env!("CARGO_PKG_VERSION"))`
-   вместо git-зависимости; поправить README (`cargo install rustyapi-cli`, `rustyapi = "0.1"`).
-   Закоммитить, дождаться зелёного CI.
+2. `tez new` по умолчанию ставит `rustyapi` той же версии с crates.io, что и сам `tez`
+   (`env!("CARGO_PKG_VERSION")` в `rustyapi-cli/src/scaffold.rs`), README и туториалы ставят CLI
+   через `cargo install rustyapi-cli` — для 0.1.0 уже сделано.
 3. Проверка без загрузки:
    ```bash
    cargo publish --dry-run -p rustyapi-macros -p rustyapi -p rustyapi-cli

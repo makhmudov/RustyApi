@@ -6,7 +6,7 @@ Docker (for PostgreSQL).
 ## 1. Install and create a project
 
 ```sh
-cargo install --git https://github.com/makhmudov/RustyApi rustyapi-cli   # the tez command
+cargo install rustyapi-cli   # the tez command
 tez new notes
 cd notes
 docker compose up -d     # PostgreSQL from docker-compose.yml

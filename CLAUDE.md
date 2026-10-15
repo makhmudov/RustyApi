@@ -63,7 +63,7 @@ axum 0.8 · tokio 1 · tower-http 0.6 · serde/serde_json (preserve_order) · se
 * `Update` принимает дополнительные условия (`.eq("owner_id", uid)`): так пример ограничивает доступ владельцем без гонок.
 * `tez` узнаёт маршруты и OpenAPI у самого приложения: собирает бинарник и запускает с `RUSTYAPI_PRINT=routes|openapi` (обрабатывается в начале `App::run`, до логов и базы).
 * `tez new` делает lib + bin (`app()` в lib.rs), чтобы тесты в `tests/` видели приложение. Новые роутеры вставляются перед меткой `// tez: routers` в `vec![...]` (комментарий внутри литерала rustfmt не ломает). Созданные файлы прогоняются через rustfmt.
-* Пока rustyapi не опубликован, `tez new` по умолчанию ставит зависимость из git; при публикации 0.1.0 поменять на версию (шаги — `RELEASE.md`).
+* `tez new` по умолчанию ставит `rustyapi` той же версии с crates.io, что и сам `tez` (`env!("CARGO_PKG_VERSION")`); `--rustyapi-path` / `--rustyapi-version` — для разработки и e2e.
 * MSRV 1.85: без let-chains (`if let ... && ...` стабильны с 1.88).
 * E2E-тесты CLI (`rustyapi-cli/tests/e2e.rs`) помечены `#[ignore]` и идут отдельной задачей CI; сгенерированные проекты собираются в `target/tez-e2e`.
 * Слои `App::into_router` (снаружи внутрь): `CoreLayer` (access-лог + фоновые задачи — один написанный вручную tower-сервис, не `from_fn`: так на 8–15% быстрее), CatchPanic (паника → 500 JSON), timeout, CORS, rate limit, gzip, body limit, роуты. Rate limit в памяти процесса; IP из `ConnectInfo` (`TestClient` подставляет 127.0.0.1:50000).

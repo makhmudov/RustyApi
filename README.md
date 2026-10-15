@@ -87,10 +87,8 @@ Swagger UI — на `/docs`, ReDoc — на `/redoc`, схема — на `/open
 
 ## Установка
 
-Версия 0.1.0 готовится к публикации на crates.io. Пока — из git:
-
 ```bash
-cargo install --git https://github.com/makhmudov/RustyApi rustyapi-cli   # команда tez
+cargo install rustyapi-cli   # команда tez
 tez new myapp && cd myapp
 docker compose up -d   # PostgreSQL
 tez dev
@@ -100,7 +98,7 @@ tez dev
 
 ```toml
 [dependencies]
-rustyapi = { git = "https://github.com/makhmudov/RustyApi" }
+rustyapi = "0.1"
 ```
 
 Нужен Rust 1.85+.
