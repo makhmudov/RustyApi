@@ -109,8 +109,8 @@ jobs:
                -d '{"username":"ci_user","password":"supersecret"}'
           TOKEN=$(curl -fsS -X POST localhost:8000/token -d 'username=ci_user&password=supersecret' | jq -r .access_token)
           curl -fsS -X POST localhost:8000/links -H "authorization: Bearer $TOKEN" \
-               -H 'content-type: application/json' -d '{"url":"https://example.com","code":"ci"}'
-          test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/r/ci)" = 307
+               -H 'content-type: application/json' -d '{"url":"https://example.com","code":"ci-link"}'
+          test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/r/ci-link)" = 307
       - name: Logs
         if: failure()
         run: docker compose -f examples/production/docker-compose.yml logs
