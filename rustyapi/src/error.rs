@@ -129,6 +129,11 @@ impl Error {
         }
     }
 
+    /// Если внутри ошибка типа `E` — ссылка на неё.
+    pub fn downcast_ref<E: std::error::Error + 'static>(&self) -> Option<&E> {
+        self.inner.downcast_ref()
+    }
+
     /// Если внутри [`HTTPException`] — ссылка на неё.
     pub fn as_http_exception(&self) -> Option<&HTTPException> {
         self.inner.downcast_ref()
@@ -172,8 +177,12 @@ impl fmt::Debug for Error {
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
-        match self.inner.downcast::<HTTPException>() {
-            Ok(exc) => exc.into_response(),
+        let other = match self.inner.downcast::<HTTPException>() {
+            Ok(exc) => return exc.into_response(),
+            Err(other) => other,
+        };
+        match other.downcast::<crate::schema::ValidationError>() {
+            Ok(err) => err.into_response(),
             Err(other) => {
                 tracing::error!("Exception in request handler: {other}");
                 internal_server_error()

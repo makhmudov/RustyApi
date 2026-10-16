@@ -1,0 +1,530 @@
+{
+ "missing": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "missing",
+     "loc": [
+      "body",
+      "name"
+     ],
+     "msg": "Field required",
+     "input": {
+      "price": 1,
+      "owner_email": "a@example.com"
+     }
+    }
+   ]
+  }
+ },
+ "short": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "string_too_short",
+     "loc": [
+      "body",
+      "name"
+     ],
+     "msg": "String should have at least 1 character",
+     "input": "",
+     "ctx": {
+      "min_length": 1
+     }
+    }
+   ]
+  }
+ },
+ "long": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "string_too_long",
+     "loc": [
+      "body",
+      "name"
+     ],
+     "msg": "String should have at most 100 characters",
+     "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "ctx": {
+      "max_length": 100
+     }
+    }
+   ]
+  }
+ },
+ "gt": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "greater_than",
+     "loc": [
+      "body",
+      "price"
+     ],
+     "msg": "Input should be greater than 0",
+     "input": 0,
+     "ctx": {
+      "gt": 0.0
+     }
+    }
+   ]
+  }
+ },
+ "email": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "value_error",
+     "loc": [
+      "body",
+      "owner_email"
+     ],
+     "msg": "value is not a valid email address: An email address must have an @-sign.",
+     "input": "nope",
+     "ctx": {
+      "reason": "An email address must have an @-sign."
+     }
+    }
+   ]
+  }
+ },
+ "email2": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "value_error",
+     "loc": [
+      "body",
+      "owner_email"
+     ],
+     "msg": "value is not a valid email address: The part after the @-sign is not valid. It should have a period.",
+     "input": "a@b",
+     "ctx": {
+      "reason": "The part after the @-sign is not valid. It should have a period."
+     }
+    }
+   ]
+  }
+ },
+ "type_float": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "float_parsing",
+     "loc": [
+      "body",
+      "price"
+     ],
+     "msg": "Input should be a valid number, unable to parse string as a number",
+     "input": "abc"
+    }
+   ]
+  }
+ },
+ "type_float_bool": {
+  "status": 200,
+  "body": {
+   "name": "x",
+   "price": 1.0,
+   "owner_email": "a@example.com",
+   "tags": [],
+   "description": null,
+   "homepage": null,
+   "code": null,
+   "quantity": 1,
+   "status": "todo",
+   "labels": []
+  }
+ },
+ "type_str": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "string_type",
+     "loc": [
+      "body",
+      "name"
+     ],
+     "msg": "Input should be a valid string",
+     "input": 5
+    }
+   ]
+  }
+ },
+ "list_type": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "list_type",
+     "loc": [
+      "body",
+      "tags"
+     ],
+     "msg": "Input should be a valid list",
+     "input": "a"
+    }
+   ]
+  }
+ },
+ "list_item": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "string_type",
+     "loc": [
+      "body",
+      "tags",
+      1
+     ],
+     "msg": "Input should be a valid string",
+     "input": 1
+    }
+   ]
+  }
+ },
+ "url": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "url_parsing",
+     "loc": [
+      "body",
+      "homepage"
+     ],
+     "msg": "Input should be a valid URL, relative URL without a base",
+     "input": "notaurl",
+     "ctx": {
+      "error": "relative URL without a base"
+     }
+    }
+   ]
+  }
+ },
+ "url_scheme": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "url_scheme",
+     "loc": [
+      "body",
+      "homepage"
+     ],
+     "msg": "URL scheme should be 'http' or 'https'",
+     "input": "ftp://x.com",
+     "ctx": {
+      "expected_schemes": "'http' or 'https'"
+     }
+    }
+   ]
+  }
+ },
+ "pattern": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "string_pattern_mismatch",
+     "loc": [
+      "body",
+      "code"
+     ],
+     "msg": "String should match pattern '^[A-Z]{3}$'",
+     "input": "ab",
+     "ctx": {
+      "pattern": "^[A-Z]{3}$"
+     }
+    }
+   ]
+  }
+ },
+ "ge": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "greater_than_equal",
+     "loc": [
+      "body",
+      "quantity"
+     ],
+     "msg": "Input should be greater than or equal to 1",
+     "input": 0,
+     "ctx": {
+      "ge": 1
+     }
+    }
+   ]
+  }
+ },
+ "le": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "less_than_equal",
+     "loc": [
+      "body",
+      "quantity"
+     ],
+     "msg": "Input should be less than or equal to 1000",
+     "input": 1001,
+     "ctx": {
+      "le": 1000
+     }
+    }
+   ]
+  }
+ },
+ "int_float": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "int_from_float",
+     "loc": [
+      "body",
+      "quantity"
+     ],
+     "msg": "Input should be a valid integer, got a number with a fractional part",
+     "input": 1.5
+    }
+   ]
+  }
+ },
+ "int_str": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "int_parsing",
+     "loc": [
+      "body",
+      "quantity"
+     ],
+     "msg": "Input should be a valid integer, unable to parse string as an integer",
+     "input": "x"
+    }
+   ]
+  }
+ },
+ "enum": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "enum",
+     "loc": [
+      "body",
+      "status"
+     ],
+     "msg": "Input should be 'todo' or 'done'",
+     "input": "zzz",
+     "ctx": {
+      "expected": "'todo' or 'done'"
+     }
+    }
+   ]
+  }
+ },
+ "nested": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "string_too_short",
+     "loc": [
+      "body",
+      "labels",
+      0,
+      "name"
+     ],
+     "msg": "String should have at least 1 character",
+     "input": "",
+     "ctx": {
+      "min_length": 1
+     }
+    }
+   ]
+  }
+ },
+ "nested_missing": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "missing",
+     "loc": [
+      "body",
+      "labels",
+      0,
+      "name"
+     ],
+     "msg": "Field required",
+     "input": {}
+    }
+   ]
+  }
+ },
+ "list_max": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "too_long",
+     "loc": [
+      "body",
+      "labels"
+     ],
+     "msg": "List should have at most 3 items after validation, not 4",
+     "input": [
+      {
+       "name": "a"
+      },
+      {
+       "name": "a"
+      },
+      {
+       "name": "a"
+      },
+      {
+       "name": "a"
+      }
+     ],
+     "ctx": {
+      "field_type": "List",
+      "max_length": 3,
+      "actual_length": 4
+     }
+    }
+   ]
+  }
+ },
+ "not_object": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "model_attributes_type",
+     "loc": [
+      "body"
+     ],
+     "msg": "Input should be a valid dictionary or object to extract fields from",
+     "input": [
+      1
+     ]
+    }
+   ]
+  }
+ },
+ "empty_body": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "missing",
+     "loc": [
+      "body"
+     ],
+     "msg": "Field required",
+     "input": null
+    }
+   ]
+  }
+ },
+ "bad_json": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "json_invalid",
+     "loc": [
+      "body",
+      9
+     ],
+     "msg": "JSON decode error",
+     "input": {},
+     "ctx": {
+      "error": "Expecting value"
+     }
+    }
+   ]
+  }
+ },
+ "path_int": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "int_parsing",
+     "loc": [
+      "path",
+      "item_id"
+     ],
+     "msg": "Input should be a valid integer, unable to parse string as an integer",
+     "input": "abc"
+    }
+   ]
+  }
+ },
+ "query_missing": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "missing",
+     "loc": [
+      "query",
+      "q"
+     ],
+     "msg": "Field required",
+     "input": null
+    }
+   ]
+  }
+ },
+ "query_int": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "int_parsing",
+     "loc": [
+      "query",
+      "limit"
+     ],
+     "msg": "Input should be a valid integer, unable to parse string as an integer",
+     "input": "x"
+    }
+   ]
+  }
+ },
+ "form_missing": {
+  "status": 422,
+  "body": {
+   "detail": [
+    {
+     "type": "missing",
+     "loc": [
+      "body",
+      "password"
+     ],
+     "msg": "Field required",
+     "input": null
+    }
+   ]
+  }
+ }
+}

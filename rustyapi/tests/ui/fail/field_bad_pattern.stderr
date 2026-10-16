@@ -1,0 +1,8 @@
+error: некорректное регулярное выражение / invalid regex: regex parse error:
+           [a-z
+           ^
+       error: unclosed character class
+ --> tests/ui/fail/field_bad_pattern.rs:5:23
+  |
+5 |     #[field(pattern = "[a-z")]
+  |                       ^^^^^^

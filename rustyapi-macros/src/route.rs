@@ -4,7 +4,7 @@
 //! Исходная функция становится вложенной внутри `method_router()`.
 
 use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, quote_spanned};
 use syn::ext::IdentExt;
 use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned;
@@ -335,6 +335,17 @@ pub fn expand(
         None => quote!(::core::option::Option::None),
     };
 
+    // Понятная ошибка, если аргумент — не экстрактор (вместо «Handler is not implemented»).
+    let arg_checks = func.sig.inputs.iter().filter_map(|arg| match arg {
+        FnArg::Typed(pat) => {
+            let ty = &pat.ty;
+            Some(quote_spanned! {ty.span()=>
+                const _: () = ::rustyapi::routing::__private::assert_extractor::<#ty, _>();
+            })
+        }
+        FnArg::Receiver(_) => None,
+    });
+
     let handler = format_ident!("__rustyapi_handler_{}", ident);
     func.sig.ident = handler.clone();
     func.vis = syn::Visibility::Inherited;
@@ -351,6 +362,7 @@ pub fn expand(
             }
 
             fn method_router(&self) -> ::rustyapi::routing::__private::MethodRouter {
+                #(#arg_checks)*
                 #(#other_attrs)*
                 #func
 

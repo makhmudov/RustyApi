@@ -1,7 +1,8 @@
 //! Эталонный пример RustyAPI (JWT + PostgreSQL + CRUD). Наполняется по мере этапов ROADMAP.md.
 //!
-//! Этап 1: роуты, `APIRouter`, `HTTPException`, `status_code`. Пока данные хранятся в памяти;
-//! на этапе 4 их заменит PostgreSQL.
+//! Этап 1: роуты, `APIRouter`, `HTTPException`, `status_code`.
+//! Этап 2: схемы `#[schema]`, валидация `#[field(...)]`, ошибки 422 как в FastAPI.
+//! Пока данные хранятся в памяти; на этапе 4 их заменит PostgreSQL.
 //!
 //! ```text
 //! cargo run -p todo_api
@@ -12,20 +13,31 @@
 use std::sync::{Mutex, MutexGuard};
 
 use rustyapi::prelude::*;
-use rustyapi::serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(crate = "rustyapi::serde")]
+/// Задача.
+#[schema]
 struct Todo {
     id: i64,
     title: String,
     done: bool,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(crate = "rustyapi::serde")]
+/// Новая задача.
+#[schema]
 struct TodoCreate {
+    /// Заголовок задачи.
+    #[field(min_length = 1, max_length = 200, example = "Купить хлеб")]
     title: String,
+}
+
+/// Фильтр списка задач.
+#[schema]
+struct TodoFilter {
+    /// Только выполненные / только невыполненные.
+    done: Option<bool>,
+    /// Сколько задач вернуть.
+    #[field(default = 100, ge = 1, le = 1000)]
+    limit: usize,
 }
 
 static TODOS: Mutex<Vec<Todo>> = Mutex::new(Vec::new());
@@ -48,8 +60,14 @@ async fn root() -> Json<Value> {
 
 /// Список задач.
 #[get("")]
-async fn list_todos() -> Json<Vec<Todo>> {
-    Json(todos().clone())
+async fn list_todos(Query(filter): Query<TodoFilter>) -> Json<Vec<Todo>> {
+    let todos = todos()
+        .iter()
+        .filter(|t| filter.done.is_none_or(|done| t.done == done))
+        .take(filter.limit)
+        .cloned()
+        .collect();
+    Json(todos)
 }
 
 /// Одна задача по id.
@@ -175,6 +193,19 @@ mod tests {
             (404, json!({"detail": "Todo not found"}))
         );
         assert_eq!(call("GET", "/todos/", None).await.0, 307);
+
+        let (status, body) = call("POST", "/todos", Some(json!({"title": ""}))).await;
+        assert_eq!(status, 422);
+        assert_eq!(body["detail"][0]["type"], "string_too_short");
+        assert_eq!(body["detail"][0]["loc"], json!(["body", "title"]));
+
+        let (status, body) = call("GET", "/todos?limit=0", None).await;
+        assert_eq!(status, 422);
+        assert_eq!(body["detail"][0]["loc"], json!(["query", "limit"]));
+
+        let (status, body) = call("GET", "/todos/abc", None).await;
+        assert_eq!(status, 422);
+        assert_eq!(body["detail"][0]["type"], "int_parsing");
         assert_eq!(
             call("GET", "/nope", None).await,
             (404, json!({"detail": "Not Found"}))

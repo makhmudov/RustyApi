@@ -349,6 +349,30 @@ pub mod __private {
         }
     }
 
+    /// Маркеры для [`Extractor`].
+    pub enum ViaParts {}
+    /// Маркеры для [`Extractor`].
+    pub enum ViaRequest {}
+
+    /// Аргумент обработчика: экстрактор axum (из частей запроса или из всего запроса).
+    /// Нужен только для понятной ошибки компиляции.
+    #[diagnostic::on_unimplemented(
+        message = "`{Self}` нельзя использовать как аргумент обработчика / \
+                   `{Self}` cannot be used as a route handler argument",
+        label = "не экстрактор / not an extractor",
+        note = "аргументы: Json<T>, Path<T>, Query<T>, Form<T> и другие экстракторы; \
+                для Json/Query/Form/Path тип T должен быть `#[schema]` (или реализовать Deserialize + Validate)",
+        note = "arguments must be extractors such as Json<T>, Path<T>, Query<T>, Form<T>; \
+                T must be a `#[schema]` type (or implement Deserialize + Validate)"
+    )]
+    pub trait Extractor<M> {}
+
+    impl<T: axum::extract::FromRequestParts<()>> Extractor<ViaParts> for T {}
+    impl<T: axum::extract::FromRequest<()>> Extractor<ViaRequest> for T {}
+
+    /// Проверка аргумента на этапе компиляции.
+    pub const fn assert_extractor<T: Extractor<M>, M>() {}
+
     /// Статус из выражения в `status_code = ...`.
     pub fn status(code: impl IntoStatusCode) -> StatusCode {
         code.into_status_code()

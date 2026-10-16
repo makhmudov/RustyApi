@@ -24,7 +24,7 @@ RustyApi/
 
 ## Стек (зафиксированные версии)
 
-axum 0.8 · tokio 1 · tower-http 0.6 · serde/serde_json · serde_path_to_error · sqlx 0.8 (postgres, rustls) · jsonwebtoken 9 · argon2 0.5 · chrono · uuid · regex · dotenvy · envy · tracing · notify (CLI) · syn 2. Обновлять мажорные версии только отдельной задачей.
+axum 0.8 · tokio 1 · tower-http 0.6 · serde/serde_json (preserve_order) · serde_path_to_error · serde_urlencoded · sqlx 0.8 (postgres, rustls) · jsonwebtoken 9 · argon2 0.5 · chrono · uuid · regex · dotenvy · envy · tracing · notify (CLI) · syn 2. Обновлять мажорные версии только отдельной задачей.
 
 ## Ключевые технические решения
 
@@ -38,7 +38,12 @@ axum 0.8 · tokio 1 · tower-http 0.6 · serde/serde_json · serde_path_to_error
 * Логи: свой `FormatEvent` (`LEVEL:` + отступ до 9 символов), access-лог с target `rustyapi::access`. `logging::init()` не трогает уже установленный пользователем subscriber.
 * OpenAPI — свой генератор на serde_json, без utoipa. Трейт `ApiSchema` реализован для примитивов, String, Vec, Option, HashMap, chrono, uuid, Value и генерируется `#[schema]`. Вложенные типы — `$ref` в components.
 * Автодокументация аргументов через autoref-специализацию: `(&&Probe::<T>::new()).__rustyapi_doc_arg(op)`. Проверено: вызов именно через `&&`. Неизвестные экстракторы молча пропускаются.
-* Экстракторы `Json/Path/Query/Form` — свои newtype над axum: ошибки → 422 в формате FastAPI, путь ошибки через `serde_path_to_error`, затем `Validate`.
+* Экстракторы `Json/Path/Query/Form` — свои newtype над axum: ошибки → 422 в формате FastAPI, путь ошибки через `serde_path_to_error`, затем `Validate`. Быстрый путь — разбор сразу в `T`; только при ошибке тело перечитывается в `Value`, чтобы заполнить `input` (исходное значение, как в Pydantic).
+* `#[schema]` на структурах ставит `#[serde(remote = "Self")]` и сам реализует `Serialize`/`Deserialize` поверх inherent-функций: `Deserialize` принимает только map (serde по умолчанию принял бы JSON-массив, Pydantic — нет).
+* Правила `#[field]` проверяются через трейты `HasLength`/`Numeric`/`AsStr` с `#[diagnostic::on_unimplemented]` (понятная ошибка «gt применимо только к числам»); вложенная валидация и схемы полей — autoref-специализация (`Probe`/`SchemaProbe`), типы без `Validate`/`ApiSchema` молча пропускаются.
+* `Option`-поля определяются синтаксически (`Option<...>`): правила проверяются только для `Some`.
+* Route-макрос проверяет каждый аргумент через `assert_extractor` — вместо «Handler is not implemented» компилятор называет конкретный аргумент.
+* Паритет 422 с FastAPI: `rustyapi/tests/fastapi_parity.rs` + эталон `tests/fixtures/fastapi_422.{py,json}` (перегенерировать скриптом при изменении кейсов).
 * Swagger UI / ReDoc — HTML с CDN jsdelivr (как FastAPI), без build-скриптов.
 * ORM — лёгкий слой над sqlx: `#[model(table = "...")]` генерирует `FromRow` и CRUD; билдеры `select()/insert()/update()` на `PgArguments` с проверкой имён колонок.
 
