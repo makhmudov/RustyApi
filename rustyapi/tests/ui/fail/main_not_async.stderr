@@ -1,0 +1,6 @@
+error: #[rustyapi::main] применяется к `async fn` / expected `async fn main`
+       подсказка / help: напишите `async fn main() -> rustyapi::Result<()>`
+ --> tests/ui/fail/main_not_async.rs:2:1
+  |
+2 | fn main() {}
+  | ^^

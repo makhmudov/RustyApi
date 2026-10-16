@@ -1,0 +1,5 @@
+error: #[rustyapi::main] не принимает аргументов / takes no arguments
+ --> tests/ui/fail/main_args.rs:1:18
+  |
+1 | #[rustyapi::main(flavor = "current_thread")]
+  |                  ^^^^^^

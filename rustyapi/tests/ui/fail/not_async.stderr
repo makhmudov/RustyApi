@@ -1,0 +1,6 @@
+error: обработчик должен быть `async fn` / route handler must be an `async fn`
+       подсказка / help: `async fn root(...)`
+ --> tests/ui/fail/not_async.rs:4:1
+  |
+4 | fn root() -> &'static str {
+  | ^^

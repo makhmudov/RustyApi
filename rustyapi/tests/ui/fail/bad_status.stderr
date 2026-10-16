@@ -1,0 +1,5 @@
+error: status_code должен быть от 100 до 599 / status_code must be between 100 and 599
+ --> tests/ui/fail/bad_status.rs:3:32
+  |
+3 | #[post("/items", status_code = 700)]
+  |                                ^^^
