@@ -47,6 +47,7 @@ http-body-util = "0.1"
 # CLI
 clap = { version = "4", features = ["derive"] }
 notify = "8"
+libc = "0.2"
 
 [profile.dev.package."*"]
 # Зависимости собираются с оптимизацией: быстрее рантайм, пересборка своего кода не дороже

@@ -1610,8 +1610,15 @@ dependencies = [
 name = "rustyapi-cli"
 version = "0.0.1"
 dependencies = [
+ "chrono",
  "clap",
+ "dotenvy",
+ "libc",
  "notify",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]

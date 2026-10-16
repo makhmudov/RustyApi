@@ -54,3 +54,11 @@
   - Правило `#[field(format = "...")]`; дополнительные условия у `Model::update(id)`.
   - `examples/todo_api`: пользователи, `/token`, `/users/me`, зависимость `CurrentUser`, задачи владельца,
     `/admin/users` для роли `admin`.
+- Этап 6, CLI `tez`:
+  - `tez new`: проект из шаблона (lib + bin, роутеры, модели, миграции, тесты, `.env`, docker-compose).
+  - `tez dev`: сборка через `--message-format=json-render-diagnostics`, старый сервер работает во время
+    сборки, SIGTERM → 5 с → kill, дебаунс 300 мс, ошибки сборки не останавливают `tez dev`;
+    подсказка про mold.
+  - `tez run`, `tez migrate new|run|revert|status`, `tez generate crud`, `tez routes`.
+  - `App::run` понимает `RUSTYAPI_PRINT=routes|openapi`.
+  - NOTICE от PostgreSQL не попадают в лог по умолчанию.

@@ -60,6 +60,11 @@ axum 0.8 · tokio 1 · tower-http 0.6 · serde/serde_json (preserve_order) · se
 * Auth: `Auth` — экстрактор Bearer-токена (HS256, `SECRET_KEY` или `auth::set_secret_key`), 401 `Not authenticated` / `Could not validate credentials` + `WWW-Authenticate: Bearer`, 403 `Not enough permissions` — тексты как в учебнике FastAPI. Роли — поле `roles` в claims (нужен новый логин после смены роли).
 * OpenAPI-схема `OAuth2PasswordBearer` (tokenUrl из `App::oauth2_token_url`, по умолчанию `/token`) добавляется только если её требует хотя бы одна операция. Собственная зависимость документируется через `Dependency::openapi` → `Auth::document`.
 * `Update` принимает дополнительные условия (`.eq("owner_id", uid)`): так пример ограничивает доступ владельцем без гонок.
+* `tez` узнаёт маршруты и OpenAPI у самого приложения: собирает бинарник и запускает с `RUSTYAPI_PRINT=routes|openapi` (обрабатывается в начале `App::run`, до логов и базы).
+* `tez new` делает lib + bin (`app()` в lib.rs), чтобы тесты в `tests/` видели приложение. Новые роутеры вставляются перед меткой `// tez: routers` в `vec![...]` (комментарий внутри литерала rustfmt не ломает). Созданные файлы прогоняются через rustfmt.
+* Пока rustyapi не опубликован, `tez new` по умолчанию ставит зависимость из git; при публикации 0.1.0 поменять `RUSTYAPI_GIT` в `rustyapi-cli/src/scaffold.rs` на версию.
+* MSRV 1.85: без let-chains (`if let ... && ...` стабильны с 1.88).
+* E2E-тесты CLI (`rustyapi-cli/tests/e2e.rs`) помечены `#[ignore]` и идут отдельной задачей CI; сгенерированные проекты собираются в `target/tez-e2e`.
 
 ## Команды
 

@@ -432,6 +432,16 @@ async fn migrations_on_startup() {
         .await
         .unwrap_err();
     assert!(err.to_string().contains("база не подключена"));
+
+    // Пустой каталог миграций: к базе не подключаемся (нового проекта без таблиц база не нужна).
+    let empty = std::env::temp_dir().join(format!("rustyapi_empty_{}", std::process::id()));
+    std::fs::create_dir_all(&empty).unwrap();
+    App::new()
+        .migrations(empty.to_str().unwrap())
+        .run_migrations()
+        .await
+        .unwrap();
+    std::fs::remove_dir_all(empty).unwrap();
 }
 /// Футуры ORM — Send (иначе обработчик axum не скомпилируется).
 fn _futures_are_send(db: Db) {
