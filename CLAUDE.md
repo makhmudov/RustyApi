@@ -50,6 +50,12 @@ axum 0.8 · tokio 1 · tower-http 0.6 · serde/serde_json (preserve_order) · se
 * Паритет OpenAPI: `rustyapi/tests/openapi_parity.rs` + `tests/fixtures/fastapi_openapi.{py,json}`; числа сравниваются как f64.
 * Проверка `/docs` в браузере: CDN jsdelivr в песочнице может быть закрыт — подставлять swagger-ui-dist из npm через `page.route` в Playwright.
 * ORM — лёгкий слой над sqlx: `#[model(table = "...")]` генерирует `FromRow` и CRUD; билдеры `select()/insert()/update()` на `PgArguments` с проверкой имён колонок.
+* CRUD — методы по умолчанию трейта `Model` (в макросе только константы и `FromRow`). Ошибки билдера (колонка, оператор, encode) копятся и возвращаются из `execute/all`, без паник.
+* Исполнитель — свой трейт `db::Conn<'c>` (`&Db`, `&PgPool`, `&mut PgConnection`, `&mut Transaction`), а не реализация `sqlx::Executor` для `Db`.
+* Методы, принимающие `impl Conn<'c>`, возвращают `impl Future + Send` явно, а не `async fn`: иначе в обработчике axum всплывает ошибка «implementation of `Conn` is not general enough» (HRTB + auto-trait Send).
+* `Db` кладётся в extensions слоем `Extension` в `App::into_router`; без базы экстрактор отвечает 500 с логом.
+* Транзакции — `AsyncFnOnce(&mut Transaction)` (async closures, Rust 1.85).
+* Тесты БД: своя схема на тест через `?options=-c%20search_path%3D<схема>` в URL; без `DATABASE_URL` тест пропускается.
 
 ## Команды
 

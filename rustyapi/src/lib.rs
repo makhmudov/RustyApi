@@ -15,13 +15,14 @@ pub mod schema;
 pub mod status;
 
 pub use app::App;
+pub use db::{Db, DbError, Model};
 pub use error::{Error, HTTPException, Result};
 pub use extract::{Form, Json, Path, Query};
 pub use routing::{APIRouter, Endpoint};
 
 // Процедурные макросы.
 pub use rustyapi_macros;
-pub use rustyapi_macros::{delete, get, head, main, options, patch, post, put, schema};
+pub use rustyapi_macros::{delete, get, head, main, model, options, patch, post, put, schema};
 pub use schema::{ApiSchema, Validate, ValidationError};
 
 /// Всё нужное для типичного приложения: `use rustyapi::prelude::*;`.
@@ -29,8 +30,9 @@ pub mod prelude {
     pub use crate::axum::http::StatusCode;
     pub use crate::serde_json::{Value, json};
     pub use crate::{
-        APIRouter, ApiSchema, App, Form, HTTPException, Json, Path, Query, Result, Validate,
-        ValidationError, delete, get, head, options, patch, post, put, schema, status,
+        APIRouter, ApiSchema, App, Db, Form, HTTPException, Json, Model, Path, Query, Result,
+        Validate, ValidationError, delete, get, head, model, options, patch, post, put, schema,
+        status,
     };
 }
 

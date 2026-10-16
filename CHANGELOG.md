@@ -34,3 +34,12 @@
     `openapi_url`, `no_docs`, `no_redoc`, `no_openapi`, `security_scheme`.
   - Параметр маршрута `include_in_schema = false`; `RouteInfo::openapi`, трейты `OpenApiArg`, `OpenApiResponse`.
   - `HashMap<String, Value>` в схеме — `additionalProperties: true`, как `dict` в Pydantic.
+- Этап 4, PostgreSQL:
+  - `rustyapi::db`: `pool_from_env`, `pool_from_url`, `migrate`, экстрактор `Db`, `transaction`, трейт `Conn`.
+  - `App::database_from_env`, `database`, `migrations`, `run_migrations`, `db`.
+  - `#[model(table = "...")]` и `#[primary_key]`: `#[schema]` + свой `FromRow` + трейт `Model`
+    (`get`, `get_or_404`, `all`, `count`, `delete`, `select`, `insert`, `update`, `delete_where`).
+  - Построители `Select`, `Insert`, `Update`, `Delete` на `PgArguments`: проверка колонок по `COLUMNS`,
+    белый список операторов.
+  - `DbError` → 404 / 409 / 500; `sqlx::Error` через `?` тоже превращается в ответ.
+  - `examples/todo_api` на PostgreSQL: миграции, `docker-compose.yml`, `.env.example`.

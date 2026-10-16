@@ -14,6 +14,7 @@ use serde_json::Value;
 use tokio::net::TcpListener;
 use tower_http::catch_panic::CatchPanicLayer;
 
+use crate::db::{self, Db};
 use crate::error::{Error, HTTPException, Result, internal_server_error};
 use crate::logging::{self, ACCESS_TARGET};
 use crate::openapi::SecurityScheme;
@@ -45,6 +46,8 @@ pub struct App {
     router: APIRouter,
     docs: DocsConfig,
     security_schemes: Vec<SecurityScheme>,
+    database: Option<Result<Db, String>>,
+    migrations: Option<String>,
 }
 
 /// Адреса документации (как `openapi_url`, `docs_url`, `redoc_url` в FastAPI).
@@ -91,7 +94,53 @@ impl App {
                 oauth2_redirect_url: Some("/docs/oauth2-redirect".to_owned()),
             },
             security_schemes: Vec::new(),
+            database: None,
+            migrations: None,
         }
+    }
+
+    /// Подключает PostgreSQL по `DATABASE_URL` (пул ленивый: соединения открываются по запросу).
+    /// Ошибка настройки (нет `DATABASE_URL`) вернётся из `run()`.
+    pub fn database_from_env(mut self) -> Self {
+        self.database = Some(db::pool_from_env().map(Db).map_err(|e| e.to_string()));
+        self
+    }
+
+    /// Подключает готовый пул.
+    pub fn database(mut self, pool: db::Pool) -> Self {
+        self.database = Some(Ok(Db(pool)));
+        self
+    }
+
+    /// Применять миграции из папки при старте (`App::run`/`serve`), например `"migrations"`.
+    pub fn migrations(mut self, dir: impl Into<String>) -> Self {
+        self.migrations = Some(dir.into());
+        self
+    }
+
+    /// Пул базы, если она подключена.
+    pub fn db(&self) -> Option<&Db> {
+        self.database.as_ref().and_then(|d| d.as_ref().ok())
+    }
+
+    /// Применяет миграции (если заданы). Вызывается из `serve`; удобно и в тестах.
+    pub async fn run_migrations(&self) -> Result<()> {
+        let Some(dir) = &self.migrations else {
+            return Ok(());
+        };
+        let db = match &self.database {
+            Some(Ok(db)) => db,
+            Some(Err(e)) => return Err(Error::msg(e)),
+            None => {
+                return Err(Error::msg(
+                    "миграции заданы, но база не подключена: добавьте .database_from_env() \
+                     / migrations need a database",
+                ));
+            }
+        };
+        tracing::info!("Applying migrations from {dir:?}");
+        db::migrate(db, dir).await?;
+        Ok(())
     }
 
     /// Адрес схемы OpenAPI (по умолчанию `/openapi.json`).
@@ -189,6 +238,10 @@ impl App {
         let openapi = self.openapi_json();
         let docs = self.docs.clone();
         let title = self.info.title.clone();
+        let database = self.db().cloned();
+        if let Some(Err(e)) = &self.database {
+            tracing::error!("{e}");
+        }
         let (mut router, mut matcher) = self.router.into_axum();
         if let (Some(openapi_url), Some(openapi)) = (&docs.openapi_url, openapi) {
             let openapi = Bytes::from(openapi);
@@ -220,6 +273,9 @@ impl App {
                 router = router.route(redoc_url, get(move || async move { Html(html) }));
                 matcher.add(redoc_url);
             }
+        }
+        if let Some(db) = database {
+            router = router.layer(axum::Extension(db));
         }
         router
             .fallback(move |request: Request| not_found(matcher.clone(), request))
@@ -269,6 +325,10 @@ impl App {
         F: Future<Output = ()> + Send + 'static,
     {
         logging::init();
+        if let Some(Err(e)) = &self.database {
+            return Err(Error::msg(e));
+        }
+        self.run_migrations().await?;
         let pid = std::process::id();
         let addr = listener.local_addr()?;
         tracing::info!("Started server process [{pid}]");

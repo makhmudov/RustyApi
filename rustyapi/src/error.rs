@@ -181,8 +181,16 @@ impl IntoResponse for Error {
             Ok(exc) => return exc.into_response(),
             Err(other) => other,
         };
-        match other.downcast::<crate::schema::ValidationError>() {
-            Ok(err) => err.into_response(),
+        let other = match other.downcast::<crate::schema::ValidationError>() {
+            Ok(err) => return err.into_response(),
+            Err(other) => other,
+        };
+        let other = match other.downcast::<crate::db::DbError>() {
+            Ok(err) => return err.into_response(),
+            Err(other) => other,
+        };
+        match other.downcast::<sqlx::Error>() {
+            Ok(err) => crate::db::DbError::Sqlx(*err).into_response(),
             Err(other) => {
                 tracing::error!("Exception in request handler: {other}");
                 internal_server_error()
