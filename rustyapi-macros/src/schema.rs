@@ -512,16 +512,6 @@ fn field_schema(
         .as_ref()
         .map(|e| quote!(map.insert("examples".into(), ::rustyapi::serde_json::json!([#e]));));
     let is_default = default_fn.is_some() || has_serde_default;
-    let none_default = if option_inner(ty).is_some() && default_fn.is_none() {
-        // Как `description: str | None = None` в Pydantic.
-        quote! {
-            if !map.contains_key("default") {
-                map.insert("default".into(), ::rustyapi::serde_json::Value::Null);
-            }
-        }
-    } else {
-        quote!()
-    };
     quote! {
         {
             let probe = &&#p::SchemaProbe::<#ty>::new();
@@ -548,7 +538,6 @@ fn field_schema(
                 #description
                 #default
                 #example
-                #none_default
             }
             properties.insert(#wire.into(), field_schema);
             if !#is_default && probe.__rustyapi_required() {

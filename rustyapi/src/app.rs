@@ -4,15 +4,19 @@ use std::any::Any;
 use std::future::Future;
 use std::net::SocketAddr;
 
+use axum::body::Bytes;
 use axum::extract::{ConnectInfo, Request};
 use axum::http::{HeaderValue, StatusCode, header};
 use axum::middleware::Next;
-use axum::response::{IntoResponse, Response};
+use axum::response::{Html, IntoResponse, Response};
+use axum::routing::get;
+use serde_json::Value;
 use tokio::net::TcpListener;
 use tower_http::catch_panic::CatchPanicLayer;
 
 use crate::error::{Error, HTTPException, Result, internal_server_error};
 use crate::logging::{self, ACCESS_TARGET};
+use crate::openapi::SecurityScheme;
 use crate::routing::{APIRouter, Endpoint, PathMatcher, RouteInfo};
 
 /// Хост по умолчанию (как у uvicorn).
@@ -39,6 +43,17 @@ pub const DEFAULT_PORT: u16 = 8000;
 pub struct App {
     info: AppInfo,
     router: APIRouter,
+    docs: DocsConfig,
+    security_schemes: Vec<SecurityScheme>,
+}
+
+/// Адреса документации (как `openapi_url`, `docs_url`, `redoc_url` в FastAPI).
+#[derive(Debug, Clone)]
+struct DocsConfig {
+    openapi_url: Option<String>,
+    docs_url: Option<String>,
+    redoc_url: Option<String>,
+    oauth2_redirect_url: Option<String>,
 }
 
 /// Метаданные приложения (пойдут в OpenAPI).
@@ -69,7 +84,63 @@ impl App {
                 description: None,
             },
             router: APIRouter::new(),
+            docs: DocsConfig {
+                openapi_url: Some("/openapi.json".to_owned()),
+                docs_url: Some("/docs".to_owned()),
+                redoc_url: Some("/redoc".to_owned()),
+                oauth2_redirect_url: Some("/docs/oauth2-redirect".to_owned()),
+            },
+            security_schemes: Vec::new(),
         }
+    }
+
+    /// Адрес схемы OpenAPI (по умолчанию `/openapi.json`).
+    pub fn openapi_url(mut self, url: impl Into<String>) -> Self {
+        self.docs.openapi_url = Some(url.into());
+        self
+    }
+
+    /// Адрес Swagger UI (по умолчанию `/docs`).
+    pub fn docs_url(mut self, url: impl Into<String>) -> Self {
+        self.docs.docs_url = Some(url.into());
+        self
+    }
+
+    /// Адрес ReDoc (по умолчанию `/redoc`).
+    pub fn redoc_url(mut self, url: impl Into<String>) -> Self {
+        self.docs.redoc_url = Some(url.into());
+        self
+    }
+
+    /// Отключает `/openapi.json`, а с ним `/docs` и `/redoc` (как `openapi_url=None`).
+    pub fn no_openapi(mut self) -> Self {
+        self.docs.openapi_url = None;
+        self
+    }
+
+    /// Отключает Swagger UI (как `docs_url=None`).
+    pub fn no_docs(mut self) -> Self {
+        self.docs.docs_url = None;
+        self
+    }
+
+    /// Отключает ReDoc (как `redoc_url=None`).
+    pub fn no_redoc(mut self) -> Self {
+        self.docs.redoc_url = None;
+        self
+    }
+
+    /// Добавляет схему безопасности в `components.securitySchemes`.
+    pub fn security_scheme(mut self, scheme: SecurityScheme) -> Self {
+        if !self.security_schemes.iter().any(|s| s.name == scheme.name) {
+            self.security_schemes.push(scheme);
+        }
+        self
+    }
+
+    /// Документ OpenAPI 3.1 (то, что отдаёт `/openapi.json`).
+    pub fn openapi(&self) -> Value {
+        crate::openapi::build(&self.info, &self.router.routes(), &self.security_schemes)
     }
 
     /// Название API.
@@ -115,11 +186,51 @@ impl App {
     /// Готовый `axum::Router` со всеми обработчиками ошибок и логами. Удобно для тестов
     /// (`tower::ServiceExt::oneshot`) и встраивания в существующее axum-приложение.
     pub fn into_router(self) -> axum::Router {
-        let (router, matcher) = self.router.into_axum();
+        let openapi = self.openapi_json();
+        let docs = self.docs.clone();
+        let title = self.info.title.clone();
+        let (mut router, mut matcher) = self.router.into_axum();
+        if let (Some(openapi_url), Some(openapi)) = (&docs.openapi_url, openapi) {
+            let openapi = Bytes::from(openapi);
+            router = router.route(
+                openapi_url,
+                get(move || {
+                    let body = openapi.clone();
+                    async move { ([(header::CONTENT_TYPE, "application/json")], body) }
+                }),
+            );
+            matcher.add(openapi_url);
+            if let Some(docs_url) = &docs.docs_url {
+                let html = crate::openapi::swagger_ui_html(
+                    openapi_url,
+                    &format!("{title} - Swagger UI"),
+                    docs.oauth2_redirect_url.as_deref(),
+                );
+                router = router.route(docs_url, get(move || async move { Html(html) }));
+                matcher.add(docs_url);
+                if let Some(redirect) = &docs.oauth2_redirect_url {
+                    router = router.route(
+                        redirect,
+                        get(|| async { Html(crate::openapi::swagger_ui_oauth2_redirect_html()) }),
+                    );
+                }
+            }
+            if let Some(redoc_url) = &docs.redoc_url {
+                let html = crate::openapi::redoc_html(openapi_url, &format!("{title} - ReDoc"));
+                router = router.route(redoc_url, get(move || async move { Html(html) }));
+                matcher.add(redoc_url);
+            }
+        }
         router
             .fallback(move |request: Request| not_found(matcher.clone(), request))
             .layer(CatchPanicLayer::custom(handle_panic))
             .layer(axum::middleware::from_fn(access_log))
+    }
+
+    /// Сериализованный OpenAPI (строится один раз при старте).
+    fn openapi_json(&self) -> Option<String> {
+        self.docs.openapi_url.as_ref()?;
+        serde_json::to_string(&self.openapi()).ok()
     }
 
     /// Запускает сервер на `HOST:PORT` из переменных окружения (по умолчанию `127.0.0.1:8000`).

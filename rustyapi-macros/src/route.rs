@@ -10,7 +10,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned;
 use syn::{Expr, ExprLit, FnArg, Ident, ItemFn, Lit, LitBool, LitStr, Meta, Token};
 
-const ALLOWED: &str = "status_code, tags, summary, description, deprecated";
+const ALLOWED: &str = "status_code, tags, summary, description, deprecated, include_in_schema";
 
 struct RouteArgs {
     path: LitStr,
@@ -19,6 +19,7 @@ struct RouteArgs {
     summary: Option<LitStr>,
     description: Option<LitStr>,
     deprecated: bool,
+    include_in_schema: bool,
 }
 
 impl Parse for RouteArgs {
@@ -46,6 +47,7 @@ impl Parse for RouteArgs {
             summary: None,
             description: None,
             deprecated: false,
+            include_in_schema: true,
         };
         let mut seen: Vec<String> = Vec::new();
         while !input.is_empty() {
@@ -80,6 +82,18 @@ impl Parse for RouteArgs {
                 "description" => {
                     input.parse::<Token![=]>()?;
                     args.description = Some(parse_str(input, "description")?);
+                }
+                "include_in_schema" => {
+                    input.parse::<Token![=]>()?;
+                    args.include_in_schema = input
+                        .parse::<LitBool>()
+                        .map_err(|err| {
+                            syn::Error::new(
+                                err.span(),
+                                "`include_in_schema` принимает true/false / expects a bool",
+                            )
+                        })?
+                        .value;
                 }
                 "deprecated" => {
                     args.deprecated = if input.peek(Token![=]) {
@@ -327,6 +341,41 @@ pub fn expand(
     if args.deprecated {
         info = quote!(#info.deprecated(true));
     }
+    if !args.include_in_schema {
+        info = quote!(#info.include_in_schema(false));
+    }
+
+    // OpenAPI: аргументы и возвращаемый тип описывают себя через autoref-специализацию.
+    let doc_args = func.sig.inputs.iter().filter_map(|arg| match arg {
+        FnArg::Typed(pat) if !contains_impl_trait(&pat.ty) => {
+            let ty = &pat.ty;
+            Some(quote!((&&::rustyapi::openapi::__private::Probe::<#ty>::new()).__rustyapi_doc_arg(operation, components);))
+        }
+        _ => None,
+    });
+    let doc_response = match &func.sig.output {
+        syn::ReturnType::Type(_, ty) if !contains_impl_trait(ty) => {
+            quote!((&&::rustyapi::openapi::__private::Probe::<#ty>::new()).__rustyapi_doc_response(operation, components);)
+        }
+        syn::ReturnType::Type(..) => quote!(),
+        syn::ReturnType::Default => {
+            quote!((&&::rustyapi::openapi::__private::Probe::<()>::new()).__rustyapi_doc_response(operation, components);)
+        }
+    };
+    info = quote! {
+        #info.openapi({
+            #[allow(unused_imports)]
+            fn doc(
+                operation: &mut ::rustyapi::openapi::__private::Operation,
+                components: &mut ::rustyapi::openapi::__private::Components,
+            ) {
+                use ::rustyapi::openapi::__private::{NoArg as _, NoResponse as _, ViaArg as _, ViaResponse as _};
+                #(#doc_args)*
+                #doc_response
+            }
+            doc
+        })
+    };
     let status = match &args.status_code {
         Some(expr) => {
             info = quote!(#info.status_code(::rustyapi::routing::__private::status(#expr)));
@@ -374,4 +423,16 @@ pub fn expand(
             }
         }
     })
+}
+
+/// Есть ли в типе `impl Trait` (такой тип нельзя подставить в `Probe::<T>`).
+fn contains_impl_trait(ty: &syn::Type) -> bool {
+    fn walk(tokens: TokenStream) -> bool {
+        tokens.into_iter().any(|tt| match tt {
+            proc_macro2::TokenTree::Ident(ident) => ident == "impl",
+            proc_macro2::TokenTree::Group(group) => walk(group.stream()),
+            _ => false,
+        })
+    }
+    walk(quote::ToTokens::to_token_stream(ty))
 }

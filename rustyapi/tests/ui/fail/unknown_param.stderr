@@ -1,4 +1,4 @@
-error: неизвестный параметр `status` / unknown parameter `status`; допустимые / expected one of: status_code, tags, summary, description, deprecated
+error: неизвестный параметр `status` / unknown parameter `status`; допустимые / expected one of: status_code, tags, summary, description, deprecated, include_in_schema
        подсказка / help: используйте `status_code = 201`
  --> tests/ui/fail/unknown_param.rs:3:18
   |

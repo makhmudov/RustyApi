@@ -8,6 +8,8 @@ use std::collections::BTreeMap;
 use axum::http::{Method, StatusCode};
 use axum::routing::MethodRouter;
 
+use crate::openapi::Operation;
+use crate::schema::Components;
 use crate::status::IntoStatusCode;
 
 /// Описание маршрута: всё, что известно о нём без вызова обработчика (нужно для OpenAPI и `tez routes`).
@@ -30,6 +32,10 @@ pub struct RouteInfo {
     pub deprecated: bool,
     /// Статус успешного ответа (`status_code = 201`), по умолчанию 200.
     pub status_code: StatusCode,
+    /// Попадает ли маршрут в OpenAPI (`include_in_schema = false` — нет).
+    pub include_in_schema: bool,
+    /// Описание аргументов и ответа для OpenAPI (генерируется макросом).
+    pub openapi: Option<fn(&mut Operation, &mut Components)>,
 }
 
 impl RouteInfo {
@@ -44,7 +50,21 @@ impl RouteInfo {
             tags: Vec::new(),
             deprecated: false,
             status_code: StatusCode::OK,
+            include_in_schema: true,
+            openapi: None,
         }
+    }
+
+    /// Включает/исключает маршрут из OpenAPI.
+    pub fn include_in_schema(mut self, include: bool) -> Self {
+        self.include_in_schema = include;
+        self
+    }
+
+    /// Задаёт функцию, описывающую аргументы и ответ в OpenAPI.
+    pub fn openapi(mut self, doc: fn(&mut Operation, &mut Components)) -> Self {
+        self.openapi = Some(doc);
+        self
     }
 
     /// Задаёт `summary`.
@@ -240,6 +260,11 @@ pub(crate) struct PathMatcher {
 }
 
 impl PathMatcher {
+    /// Добавляет путь (служебные маршруты: `/docs`, `/openapi.json`).
+    pub(crate) fn add(&mut self, path: &str) {
+        self.templates.push(path.to_owned());
+    }
+
     /// Путь с добавленным или убранным завершающим `/`, если такой маршрут существует.
     pub(crate) fn redirect_target(&self, path: &str) -> Option<String> {
         let alternate = match path.strip_suffix('/') {

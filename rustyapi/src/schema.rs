@@ -590,14 +590,24 @@ impl<T: ApiSchema> ApiSchema for BTreeSet<T> {
 
 impl<K, V: ApiSchema, S> ApiSchema for HashMap<K, V, S> {
     fn schema(components: &mut Components) -> Value {
-        json!({ "type": "object", "additionalProperties": V::schema(components) })
+        map_schema(V::schema(components))
     }
 }
 
 impl<K, V: ApiSchema> ApiSchema for BTreeMap<K, V> {
     fn schema(components: &mut Components) -> Value {
-        json!({ "type": "object", "additionalProperties": V::schema(components) })
+        map_schema(V::schema(components))
     }
+}
+
+/// `dict[str, V]`; для `dict[str, Any]` Pydantic пишет `additionalProperties: true`.
+fn map_schema(values: Value) -> Value {
+    let values = if values == json!({}) {
+        Value::Bool(true)
+    } else {
+        values
+    };
+    json!({ "additionalProperties": values, "type": "object" })
 }
 
 macro_rules! tuple_schema {
