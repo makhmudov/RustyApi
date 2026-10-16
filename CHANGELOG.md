@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [0.1.0] — подготовлена, ещё не опубликована на crates.io
+## [0.1.0] — 2026-10-16
 
 ### Added
 - Cargo workspace: `rustyapi`, `rustyapi-macros`, `rustyapi-cli`, `examples/todo_api`.

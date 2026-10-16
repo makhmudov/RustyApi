@@ -72,6 +72,7 @@ axum 0.8 · tokio 1 · tower-http 0.6 · serde/serde_json (preserve_order) · se
 * `Cache` — enum бэкендов (память / Redis за фичей `redis`), значения в JSON. CI гоняет `--all-features` с сервисом Redis. У `ConnectionManager` обязательно таймауты подключения/ответа: без них после пропажи Redis кэш висит до TCP-таймаута ОС.
 * `tez generate client --ts` берёт OpenAPI у приложения (`RUSTYAPI_PRINT=openapi`); имя метода — имя обработчика из operationId (срезается суффикс FastAPI `_<path>_<method>`). Результат проверялся `tsc --strict`.
 * Бенчмарки — отдельный workspace (`exclude` в корневом Cargo.toml), чтобы axum/actix не попадали в Cargo.lock фреймворка. Перезапуск: `cd benchmarks && python3 run.py` (нужны oha, PostgreSQL, Python с fastapi/uvicorn).
+* Релиз — workflow `.github/workflows/release.yml` (workflow_dispatch): тег `v<версия>` + GitHub-релиз из раздела CHANGELOG; публикация на crates.io только с галочкой `publish` и секретом `CARGO_REGISTRY_TOKEN`. Из облачной сессии тег не пушится (прокси пускает только ветки).
 * `examples/production` читает миграции из `MIGRATIONS_DIR` (в образе `/app/migrations`): `App::migrations` читает каталог в рантайме. Dockerfile собирается из корня репозитория (зависимость по пути), итоговый этап без apt-get; healthcheck — `shortener healthcheck`.
 * Обработчик — unit struct с именем функции: локальная переменная с тем же именем (`let stats = ...` внутри `stats`) не компилируется. В примерах называть переменные иначе.
 

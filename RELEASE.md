@@ -1,7 +1,7 @@
 # Выпуск версии
 
 Публикация на crates.io необратима: версию нельзя перезаписать, только отозвать (`cargo yank`).
-Поэтому каждый шаг ниже выполняется вручную владельцем репозитория.
+Поэтому публикацию запускает владелец репозитория: вручную или workflow **Release** с галочкой.
 
 ## 0.1.0
 
@@ -13,23 +13,24 @@
    ```bash
    cargo publish --dry-run -p rustyapi-macros -p rustyapi -p rustyapi-cli
    ```
-4. Вход: `cargo login` с токеном с https://crates.io/settings/tokens (scope `publish-new`, `publish-update`).
-5. Публикация — строго по порядку зависимостей (cargo сам ждёт, пока версия появится в индексе):
-   ```bash
-   cargo publish -p rustyapi-macros
-   cargo publish -p rustyapi
-   cargo publish -p rustyapi-cli
-   ```
+4. Тег `v0.1.0` и GitHub-релиз: Actions → **Release** → Run workflow на `main` без галочки.
+   Текст релиза берётся из раздела `[0.1.0]` CHANGELOG.md.
+5. Публикация на crates.io — один из двух путей:
+   * из CI: добавить секрет `CARGO_REGISTRY_TOKEN` (токен с https://crates.io/settings/tokens, scope
+     `publish-new`, `publish-update`) в Settings → Secrets and variables → Actions и снова запустить
+     **Release**, поставив галочку «Опубликовать на crates.io»; уже созданный релиз workflow не трогает;
+   * локально: `cargo login`, затем строго по порядку зависимостей (cargo сам ждёт, пока версия
+     появится в индексе):
+     ```bash
+     cargo publish -p rustyapi-macros
+     cargo publish -p rustyapi
+     cargo publish -p rustyapi-cli
+     ```
 6. Проверка из чистого окружения:
    ```bash
    cargo install rustyapi-cli && tez new hello && cd hello && cargo test
    ```
-7. Тег и релиз на GitHub:
-   ```bash
-   git tag -a v0.1.0 -m "RustyAPI 0.1.0" && git push origin v0.1.0
-   ```
-   Текст релиза — раздел `[0.1.0]` из CHANGELOG.md.
-8. Анонсы (Telegram, Reddit r/rust, Habr) — после того как `cargo install rustyapi-cli` работает.
+7. Анонсы (Telegram, Reddit r/rust, Habr) — после того как `cargo install rustyapi-cli` работает.
 
 ## Следующие версии
 
