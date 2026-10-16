@@ -5,6 +5,7 @@
 //! Этап 3: OpenAPI, `/docs`, `/redoc`.
 //! Этап 4: PostgreSQL, `#[model]`, миграции при старте.
 //! Этап 5: пользователи, JWT-логин, `Depends<CurrentUser>`, роли; задачи видит только владелец.
+//! Этап 7: настройки из окружения, CORS, gzip, `TestClient` в тестах.
 //!
 //! ```text
 //! cd examples/todo_api
@@ -89,6 +90,14 @@ struct TodoFilter {
     /// Сколько задач пропустить.
     #[field(default = 0, ge = 0)]
     offset: i64,
+}
+
+/// Настройки из окружения и `.env` (`DATABASE_URL` и `SECRET_KEY` читают сами `App` и `auth`).
+#[schema]
+struct Settings {
+    /// Источники фронтенда через запятую: `CORS_ORIGINS=http://localhost:5173`.
+    #[field(default = Vec::new())]
+    cors_origins: Vec<String>,
 }
 
 /// Текущий пользователь: токен из `Authorization: Bearer ...` → запись в базе.
@@ -274,16 +283,18 @@ fn routes() -> App {
 
 #[rustyapi::main]
 async fn main() -> rustyapi::Result<()> {
-    let _ = rustyapi::dotenvy::dotenv();
-    routes().database_from_env().run().await
+    let settings: Settings = rustyapi::settings()?;
+    routes()
+        .cors_origins(settings.cors_origins)
+        .gzip()
+        .database_from_env()
+        .run()
+        .await
 }
 
 #[cfg(test)]
 mod tests {
-    use http_body_util::BodyExt;
-    use rustyapi::axum::body::Body;
-    use rustyapi::axum::http::Request;
-    use tower::ServiceExt;
+    use rustyapi::testing::TestClient;
 
     use super::*;
 
@@ -312,68 +323,28 @@ mod tests {
         Some(pool)
     }
 
-    /// Запрос к приложению: JSON-тело или форма, необязательный токен.
-    struct Call<'a> {
-        pool: &'a rustyapi::db::Pool,
-        token: Option<&'a str>,
-    }
-
-    impl Call<'_> {
-        async fn send(&self, method: &str, uri: &str, body: Option<Value>) -> (u16, Value) {
-            let mut request = Request::builder().method(method).uri(uri);
-            if let Some(token) = self.token {
-                request = request.header("authorization", format!("Bearer {token}"));
-            }
-            let body = match body {
-                Some(Value::String(form)) => {
-                    request = request.header("content-type", "application/x-www-form-urlencoded");
-                    Body::from(form)
-                }
-                Some(json) => {
-                    request = request.header("content-type", "application/json");
-                    Body::from(json.to_string())
-                }
-                None => Body::empty(),
-            };
-            auth::set_secret_key("todo-api-test-secret");
-            let response = routes()
-                .database(self.pool.clone())
-                .into_router()
-                .oneshot(request.body(body).unwrap())
-                .await
-                .unwrap();
-            let status = response.status().as_u16();
-            let bytes = response.into_body().collect().await.unwrap().to_bytes();
-            let json = if bytes.is_empty() {
-                Value::Null
-            } else {
-                rustyapi::serde_json::from_slice(&bytes).unwrap()
-            };
-            (status, json)
-        }
+    fn client(pool: &rustyapi::db::Pool) -> TestClient {
+        auth::set_secret_key("todo-api-test-secret");
+        TestClient::new(routes().database(pool.clone()))
     }
 
     /// Регистрирует пользователя и возвращает его токен.
-    async fn sign_up(pool: &rustyapi::db::Pool, username: &str) -> String {
-        let anon = Call { pool, token: None };
-        let (status, user) = anon
-            .send(
-                "POST",
-                "/users",
-                Some(json!({"username": username, "password": "supersecret"})),
-            )
+    async fn sign_up(client: &TestClient, username: &str) -> String {
+        let user = client
+            .post("/users")
+            .json(&json!({"username": username, "password": "supersecret"}))
             .await;
-        assert_eq!(status, 201, "{user}");
-        assert!(user.get("password_hash").is_none(), "хеш не утекает");
-        let (status, token) = anon
-            .send(
-                "POST",
-                "/token",
-                Some(json!(format!("username={username}&password=supersecret"))),
-            )
+        assert_eq!(user.status(), 201, "{}", user.text());
+        assert!(
+            user.json::<Value>().get("password_hash").is_none(),
+            "хеш не утекает"
+        );
+        let token = client
+            .post("/token")
+            .form(&json!({"username": username, "password": "supersecret"}))
             .await;
-        assert_eq!(status, 200, "{token}");
-        token["access_token"].as_str().unwrap().to_owned()
+        assert_eq!(token.status(), 200, "{}", token.text());
+        token.json::<Token>().access_token
     }
 
     #[rustyapi::tokio::test(crate = "rustyapi::tokio")]
@@ -381,60 +352,64 @@ mod tests {
         let Some(pool) = test_pool("todo_api_test").await else {
             return;
         };
-        let token = sign_up(&pool, "azim").await;
-        let api = Call {
-            pool: &pool,
-            token: Some(&token),
-        };
+        let api = client(&pool);
+        let token = sign_up(&api, "azim").await;
         assert_eq!(
-            api.send("GET", "/", None).await,
-            (200, json!({"message": "Hello from RustyAPI"}))
+            api.get("/").await.json::<Value>(),
+            json!({"message": "Hello from RustyAPI"})
         );
-        let (status, me) = api.send("GET", "/users/me", None).await;
+        let me = api.get("/users/me").bearer(&token).await.json::<Value>();
         assert_eq!(
-            (status, &me["username"], &me["role"]),
-            (200, &json!("azim"), &json!("user"))
+            (&me["username"], &me["role"]),
+            (&json!("azim"), &json!("user"))
         );
 
-        let (status, todo) = api
-            .send("POST", "/todos", Some(json!({"title": "Купить хлеб"})))
+        let created = api
+            .post("/todos")
+            .bearer(&token)
+            .json(&json!({"title": "Купить хлеб"}))
             .await;
-        assert_eq!(status, 201);
-        let id = todo["id"].as_i64().unwrap();
+        assert_eq!(created.status(), 201);
+        let todo = created.json::<Todo>();
+        assert_eq!((todo.done, todo.owner_id), (false, me["id"].as_i64()));
+
+        let patched = api
+            .patch(format!("/todos/{}", todo.id))
+            .bearer(&token)
+            .json(&json!({"done": true}))
+            .await
+            .json::<Todo>();
         assert_eq!(
-            (&todo["done"], &todo["owner_id"]),
-            (&json!(false), &me["id"])
+            (patched.done, patched.title.as_str()),
+            (true, "Купить хлеб")
         );
 
-        let (status, todo) = api
-            .send(
-                "PATCH",
-                &format!("/todos/{id}"),
-                Some(json!({"done": true})),
-            )
+        let done = api
+            .get("/todos")
+            .query(&json!({"done": true}))
+            .bearer(&token)
+            .await;
+        assert_eq!(done.json::<Vec<Todo>>().len(), 1);
+        let open = api.get("/todos?done=false").bearer(&token).await;
+        assert_eq!(open.json::<Value>(), json!([]));
+
+        let deleted = api
+            .delete(format!("/todos/{}", todo.id))
+            .bearer(&token)
             .await;
         assert_eq!(
-            (status, &todo["done"], &todo["title"]),
-            (200, &json!(true), &json!("Купить хлеб"))
+            (deleted.status_code(), deleted.text()),
+            (204, String::new())
         );
-
-        let (status, list) = api.send("GET", "/todos?done=true", None).await;
-        assert_eq!((status, list.as_array().unwrap().len()), (200, 1));
-        let (_, list) = api.send("GET", "/todos?done=false", None).await;
-        assert_eq!(list, json!([]));
-
+        let missing = api.get(format!("/todos/{}", todo.id)).bearer(&token).await;
         assert_eq!(
-            api.send("DELETE", &format!("/todos/{id}"), None).await,
-            (204, Value::Null)
-        );
-        assert_eq!(
-            api.send("GET", &format!("/todos/{id}"), None).await,
+            (missing.status_code(), missing.json::<Value>()),
             (404, json!({"detail": "Todo not found"}))
         );
-        assert_eq!(api.send("GET", "/todos/", None).await.0, 307);
+        assert_eq!(api.get("/todos/").await.status(), 307);
         assert_eq!(
-            api.send("GET", "/nope", None).await,
-            (404, json!({"detail": "Not Found"}))
+            api.get("/nope").await.json::<Value>(),
+            json!({"detail": "Not Found"})
         );
     }
 
@@ -443,74 +418,61 @@ mod tests {
         let Some(pool) = test_pool("todo_api_auth_test").await else {
             return;
         };
-        let anon = Call {
-            pool: &pool,
-            token: None,
-        };
+        let api = client(&pool);
         // Без токена — 401 как в FastAPI.
+        let anon = api.get("/todos").await;
         assert_eq!(
-            anon.send("GET", "/todos", None).await,
+            (anon.status_code(), anon.json::<Value>()),
             (401, json!({"detail": "Not authenticated"}))
         );
 
-        let alice_token = sign_up(&pool, "alice").await;
-        let bob_token = sign_up(&pool, "bob").await;
-        let alice = Call {
-            pool: &pool,
-            token: Some(&alice_token),
-        };
-        let bob = Call {
-            pool: &pool,
-            token: Some(&bob_token),
-        };
+        let alice = sign_up(&api, "alice").await;
+        let bob = sign_up(&api, "bob").await;
 
         // Повторная регистрация и неверный пароль.
+        let again = api
+            .post("/users")
+            .json(&json!({"username": "alice", "password": "supersecret"}))
+            .await;
         assert_eq!(
-            anon.send(
-                "POST",
-                "/users",
-                Some(json!({"username": "alice", "password": "supersecret"}))
-            )
-            .await,
+            (again.status_code(), again.json::<Value>()),
             (409, json!({"detail": "Username already registered"}))
         );
+        let wrong = api
+            .post("/token")
+            .form(&json!({"username": "alice", "password": "wrongwrong"}))
+            .await;
         assert_eq!(
-            anon.send(
-                "POST",
-                "/token",
-                Some(json!("username=alice&password=wrongwrong"))
-            )
-            .await,
+            (wrong.status_code(), wrong.json::<Value>()),
             (401, json!({"detail": "Incorrect username or password"}))
         );
 
         // Чужие задачи не видны и не меняются.
-        let (_, todo) = alice
-            .send("POST", "/todos", Some(json!({"title": "секрет"})))
-            .await;
-        let id = todo["id"].as_i64().unwrap();
-        assert_eq!(bob.send("GET", "/todos", None).await, (200, json!([])));
-        assert_eq!(bob.send("GET", &format!("/todos/{id}"), None).await.0, 404);
-        assert_eq!(
-            bob.send(
-                "PATCH",
-                &format!("/todos/{id}"),
-                Some(json!({"done": true}))
-            )
+        let todo = api
+            .post("/todos")
+            .bearer(&alice)
+            .json(&json!({"title": "секрет"}))
             .await
-            .0,
-            404
-        );
+            .json::<Todo>();
+        let url = format!("/todos/{}", todo.id);
         assert_eq!(
-            bob.send("DELETE", &format!("/todos/{id}"), None).await.0,
-            404
+            api.get("/todos").bearer(&bob).await.json::<Value>(),
+            json!([])
         );
-        let (_, todo) = alice.send("GET", &format!("/todos/{id}"), None).await;
-        assert_eq!(todo["done"], json!(false));
+        assert_eq!(api.get(&url).bearer(&bob).await.status(), 404);
+        let patch = api
+            .patch(&url)
+            .bearer(&bob)
+            .json(&json!({"done": true}))
+            .await;
+        assert_eq!(patch.status(), 404);
+        assert_eq!(api.delete(&url).bearer(&bob).await.status(), 404);
+        assert!(!api.get(&url).bearer(&alice).await.json::<Todo>().done);
 
         // Роли: admin видит всех пользователей, обычный пользователь — 403.
+        let forbidden = api.get("/admin/users").bearer(&bob).await;
         assert_eq!(
-            bob.send("GET", "/admin/users", None).await,
+            (forbidden.status_code(), forbidden.json::<Value>()),
             (403, json!({"detail": "Not enough permissions"}))
         );
         rustyapi::sqlx::query("UPDATE users SET role = 'admin' WHERE username = 'bob'")
@@ -518,31 +480,23 @@ mod tests {
             .await
             .unwrap();
         // Роль зашита в токен: нужен новый логин.
-        let bob_admin = anon
-            .send(
-                "POST",
-                "/token",
-                Some(json!("username=bob&password=supersecret")),
-            )
+        let admin = api
+            .post("/token")
+            .form(&json!({"username": "bob", "password": "supersecret"}))
             .await
-            .1["access_token"]
-            .as_str()
-            .unwrap()
-            .to_owned();
-        let admin = Call {
-            pool: &pool,
-            token: Some(&bob_admin),
-        };
-        let (status, users) = admin.send("GET", "/admin/users", None).await;
-        assert_eq!((status, users.as_array().unwrap().len()), (200, 2));
+            .json::<Token>()
+            .access_token;
+        let users = api.get("/admin/users").bearer(&admin).await;
+        assert_eq!(users.json::<Vec<User>>().len(), 2);
 
         // Пользователя удалили — его токен больше не работает.
         rustyapi::sqlx::query("DELETE FROM users WHERE username = 'alice'")
             .execute(&pool)
             .await
             .unwrap();
+        let gone = api.get("/users/me").bearer(&alice).await;
         assert_eq!(
-            alice.send("GET", "/users/me", None).await,
+            (gone.status_code(), gone.json::<Value>()),
             (401, json!({"detail": "Could not validate credentials"}))
         );
     }
@@ -551,24 +505,32 @@ mod tests {
     async fn validation_errors() {
         // Ошибки 422 возникают до обращения к базе: подойдёт ленивый пул без сервера.
         let pool = rustyapi::db::pool_from_url("postgres://nobody@127.0.0.1:1/none").unwrap();
-        let anon = Call {
-            pool: &pool,
-            token: None,
-        };
-        let (status, body) = anon
-            .send(
-                "POST",
-                "/users",
-                Some(json!({"username": "a b", "password": "short"})),
-            )
+        let api = client(&pool);
+        let response = api
+            .post("/users")
+            .json(&json!({"username": "a b", "password": "short"}))
             .await;
-        assert_eq!(status, 422);
+        assert_eq!(response.status(), 422);
+        let body = response.json::<Value>();
         assert_eq!(body["detail"][0]["type"], "string_pattern_mismatch");
         assert_eq!(body["detail"][1]["loc"], json!(["body", "password"]));
 
-        let (status, body) = anon.send("POST", "/token", Some(json!("username=a"))).await;
-        assert_eq!(status, 422);
-        assert_eq!(body["detail"][0]["loc"], json!(["body", "password"]));
+        let response = api.post("/token").form(&json!({"username": "a"})).await;
+        assert_eq!(response.status(), 422);
+        assert_eq!(
+            response.json::<Value>()["detail"][0]["loc"],
+            json!(["body", "password"])
+        );
+    }
+
+    #[test]
+    fn settings_from_env() {
+        let settings: Settings = rustyapi::settings::settings_from([(
+            "CORS_ORIGINS".to_owned(),
+            "http://localhost:5173,https://todo.example".to_owned(),
+        )])
+        .unwrap();
+        assert_eq!(settings.cors_origins.len(), 2);
     }
 
     #[test]

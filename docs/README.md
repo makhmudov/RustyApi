@@ -10,3 +10,4 @@
 | PostgreSQL и ORM | [ru/04-database.md](ru/04-database.md) | [en/04-database.md](en/04-database.md) |
 | Зависимости и авторизация | [ru/05-auth.md](ru/05-auth.md) | [en/05-auth.md](en/05-auth.md) |
 | CLI `tez` | [ru/06-cli.md](ru/06-cli.md) | [en/06-cli.md](en/06-cli.md) |
+| Батарейки: CORS, gzip, статика, настройки, TestClient, фоновые задачи, WebSocket, файлы, кэш, rate limit, TS-клиент | [ru/07-batteries.md](ru/07-batteries.md) | [en/07-batteries.md](en/07-batteries.md) |

@@ -32,6 +32,20 @@ pub enum GenerateCommand {
         #[arg(long, value_name = "DIR")]
         manifest_dir: Option<PathBuf>,
     },
+    /// Клиент API из OpenAPI: `tez generate client --ts --out web/src/api.ts`.
+    Client {
+        /// TypeScript (пока единственный вариант).
+        #[arg(long, required = true)]
+        ts: bool,
+        /// Куда записать.
+        #[arg(long, short, default_value = "client.ts")]
+        out: PathBuf,
+        /// Взять схему из файла (`openapi.json`) вместо сборки приложения.
+        #[arg(long, value_name = "FILE")]
+        input: Option<PathBuf>,
+        #[command(flatten)]
+        target: crate::TargetArgs,
+    },
 }
 
 /// Репозиторий, пока 0.1.0 не опубликован на crates.io.
@@ -260,6 +274,36 @@ fn append_line(path: &Path, line: &str) -> Result<()> {
 
 pub fn generate(command: GenerateCommand) -> Result<()> {
     match command {
+        GenerateCommand::Client {
+            ts: _,
+            out,
+            input,
+            target,
+        } => {
+            let openapi: serde_json::Value = match input {
+                Some(path) => serde_json::from_str(&std::fs::read_to_string(&path)?)
+                    .map_err(|e| format!("{}: {e}", path.display()))?,
+                None => crate::routes::query_app(&target, "openapi")?,
+            };
+            let code = crate::tsclient::generate(&openapi);
+            if let Some(parent) = out.parent().filter(|p| !p.as_os_str().is_empty()) {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::write(&out, code)?;
+            let operations = openapi["paths"].as_object().map_or(0, |paths| {
+                paths
+                    .values()
+                    .filter_map(|p| p.as_object())
+                    .map(|p| p.len())
+                    .sum()
+            });
+            term::status(&format!(
+                "{} {} ({operations} операций)",
+                term::green("создан"),
+                out.display()
+            ));
+            Ok(())
+        }
         GenerateCommand::Crud {
             name,
             plural,

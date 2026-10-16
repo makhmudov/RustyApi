@@ -65,6 +65,12 @@ axum 0.8 · tokio 1 · tower-http 0.6 · serde/serde_json (preserve_order) · se
 * Пока rustyapi не опубликован, `tez new` по умолчанию ставит зависимость из git; при публикации 0.1.0 поменять `RUSTYAPI_GIT` в `rustyapi-cli/src/scaffold.rs` на версию.
 * MSRV 1.85: без let-chains (`if let ... && ...` стабильны с 1.88).
 * E2E-тесты CLI (`rustyapi-cli/tests/e2e.rs`) помечены `#[ignore]` и идут отдельной задачей CI; сгенерированные проекты собираются в `target/tez-e2e`.
+* Слои `App::into_router` (снаружи внутрь): access-лог, CatchPanic, timeout, CORS, rate limit, gzip, body limit, фоновые задачи, роуты. Rate limit в памяти процесса; IP из `ConnectInfo` (`TestClient` подставляет 127.0.0.1:50000).
+* `BackgroundTasks` кладётся в extensions слоем; задачи запускаются `tokio::spawn` после ответа со статусом < 400, каждая в своём spawn (паника не отменяет следующие).
+* `#[websocket]` — тот же route-макрос: пользовательская функция переименовывается в `__rustyapi_ws_<name>`, обёртка принимает `WebSocketUpgrade` + остальные экстракторы и вызывает `on_upgrade`.
+* `Cache` — enum бэкендов (память / Redis за фичей `redis`), значения в JSON. CI гоняет `--all-features` с сервисом Redis.
+* `tez generate client --ts` берёт OpenAPI у приложения (`RUSTYAPI_PRINT=openapi`); имя метода — имя обработчика из operationId (срезается суффикс FastAPI `_<path>_<method>`). Результат проверялся `tsc --strict`.
+* Обработчик — unit struct с именем функции: локальная переменная с тем же именем (`let stats = ...` внутри `stats`) не компилируется. В примерах называть переменные иначе.
 
 ## Команды
 

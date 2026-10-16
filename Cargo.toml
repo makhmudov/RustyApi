@@ -15,7 +15,7 @@ rustyapi = { path = "rustyapi", version = "0.0.1" }
 rustyapi-macros = { path = "rustyapi-macros", version = "0.0.1" }
 
 # Рантайм
-axum = "0.8"
+axum = { version = "0.8", features = ["ws", "multipart"] }
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.6", features = ["trace", "cors", "compression-gzip", "limit", "timeout", "fs", "catch-panic"] }
 serde = { version = "1", features = ["derive"] }
@@ -32,6 +32,7 @@ regex = "1"
 dotenvy = "0.15"
 envy = "0.4"
 tracing = "0.1"
+redis = { version = "0.32", default-features = false, features = ["tokio-comp", "connection-manager"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Proc-macro

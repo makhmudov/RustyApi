@@ -7,28 +7,37 @@ async fn {{plural}}_crud() {
     let Some(pool) = common::test_pool("test_{{plural}}").await else {
         return;
     };
-    let pool = Some(&pool);
-    let (status, item) = common::call(pool, "POST", "/{{plural}}", Some(json!({"name": "first"}))).await;
-    assert_eq!(status, 201);
-    let id = item["id"].as_i64().unwrap();
+    let client = common::client(Some(&pool));
+    let created = client.post("/{{plural}}").json(&json!({"name": "first"})).await;
+    assert_eq!(created.status(), 201);
+    let id = created.json::<Value>()["id"].as_i64().unwrap();
 
-    let (status, list) = common::call(pool, "GET", "/{{plural}}", None).await;
-    assert_eq!((status, list.as_array().unwrap().len()), (200, 1));
+    let list = client.get("/{{plural}}").await.json::<Vec<Value>>();
+    assert_eq!(list.len(), 1);
 
-    let (status, item) =
-        common::call(pool, "PATCH", &format!("/{{plural}}/{id}"), Some(json!({"name": "renamed"}))).await;
-    assert_eq!((status, &item["name"]), (200, &json!("renamed")));
+    let updated = client
+        .patch(format!("/{{plural}}/{id}"))
+        .json(&json!({"name": "renamed"}))
+        .await;
+    assert_eq!(updated.json::<Value>()["name"], "renamed");
 
-    assert_eq!(common::call(pool, "DELETE", &format!("/{{plural}}/{id}"), None).await.0, 204);
+    assert_eq!(client.delete(format!("/{{plural}}/{id}")).await.status(), 204);
+    let missing = client.get(format!("/{{plural}}/{id}")).await;
     assert_eq!(
-        common::call(pool, "GET", &format!("/{{plural}}/{id}"), None).await,
+        (missing.status_code(), missing.json::<Value>()),
         (404, json!({"detail": "{{Name}} not found"}))
     );
 }
 
 #[rustyapi::tokio::test(crate = "rustyapi::tokio")]
 async fn {{plural}}_validation() {
-    let (status, body) = common::call(None, "POST", "/{{plural}}", Some(json!({"name": ""}))).await;
-    assert_eq!(status, 422);
-    assert_eq!(body["detail"][0]["loc"], json!(["body", "name"]));
+    let response = common::client(None)
+        .post("/{{plural}}")
+        .json(&json!({"name": ""}))
+        .await;
+    assert_eq!(response.status(), 422);
+    assert_eq!(
+        response.json::<Value>()["detail"][0]["loc"],
+        json!(["body", "name"])
+    );
 }

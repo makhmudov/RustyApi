@@ -36,6 +36,17 @@ route_macros! {
     options => OPTIONS;
 }
 
+/// WebSocket-эндпоинт: `#[websocket("/ws")] async fn chat(mut socket: WebSocket, ...)`.
+///
+/// Первый аргумент — `WebSocket`, остальные — экстракторы (`Path`, `Query`, `Auth`, `Depends`...),
+/// они выполняются до установки соединения. В OpenAPI не попадает.
+#[proc_macro_attribute]
+pub fn websocket(args: TokenStream, item: TokenStream) -> TokenStream {
+    route::expand_websocket(args.into(), item.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
 /// Точка входа приложения: запускает async `main` на рантайме tokio (через `::rustyapi::tokio`).
 ///
 /// ```ignore

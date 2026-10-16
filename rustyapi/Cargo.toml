@@ -27,8 +27,14 @@ dotenvy.workspace = true
 envy.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+tower.workspace = true
+redis = { workspace = true, optional = true }
+
+[features]
+default = []
+# Кэш в Redis (`Cache::redis`, `App::cache_from_env`). Без фичи доступен кэш в памяти.
+redis = ["dep:redis"]
 
 [dev-dependencies]
 trybuild.workspace = true
-tower.workspace = true
 http-body-util.workspace = true

@@ -6,6 +6,7 @@ mod migrate;
 mod routes;
 mod scaffold;
 mod term;
+mod tsclient;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
