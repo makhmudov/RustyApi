@@ -1,4 +1,4 @@
-error: неизвестное правило `min` / unknown rule `min`; допустимые / expected one of: min_length, max_length, gt, ge, lt, le, pattern, email, url, default, example, title, description
+error: неизвестное правило `min` / unknown rule `min`; допустимые / expected one of: min_length, max_length, gt, ge, lt, le, pattern, email, url, default, example, title, description, format
        подсказка / help: используйте `ge = ...`
  --> tests/ui/fail/field_unknown_rule.rs:5:13
   |

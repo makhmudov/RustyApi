@@ -43,3 +43,14 @@
     белый список операторов.
   - `DbError` → 404 / 409 / 500; `sqlx::Error` через `?` тоже превращается в ответ.
   - `examples/todo_api` на PostgreSQL: миграции, `docker-compose.yml`, `.env.example`.
+- Этап 5, зависимости и авторизация:
+  - `rustyapi::depends`: трейт `Dependency`, экстрактор `Depends<T>` с кэшем на запрос, `RequestCtx::extract`.
+  - `rustyapi::auth`: `hash_password`/`verify_password` (argon2), `create_access_token`,
+    `create_access_token_with` (роли, срок), `decode_access_token`, `set_secret_key`; `SECRET_KEY`,
+    `ACCESS_TOKEN_EXPIRE_MINUTES` из окружения.
+  - Экстрактор `Auth` (`sub`, `claims`, `has_role`, `require_role`), `OAuth2PasswordRequestForm`, `Token`.
+  - OpenAPI: схема `OAuth2PasswordBearer` (password flow), `security` у защищённых операций — кнопка
+    Authorize в `/docs` работает как в FastAPI; `App::oauth2_token_url`.
+  - Правило `#[field(format = "...")]`; дополнительные условия у `Model::update(id)`.
+  - `examples/todo_api`: пользователи, `/token`, `/users/me`, зависимость `CurrentUser`, задачи владельца,
+    `/admin/users` для роли `admin`.

@@ -152,6 +152,21 @@ async fn crud() {
     );
     let unchanged = Todo::update(a.id).execute(&db).await.unwrap();
     assert!(unchanged.done);
+    // Дополнительные условия: запись не подходит — 404, ничего не меняется.
+    let err = Todo::update(a.id)
+        .set("done", false)
+        .eq("title", "чужая")
+        .execute(&db)
+        .await
+        .unwrap_err();
+    assert_eq!(err.status_code(), 404);
+    let err = Todo::update(a.id)
+        .eq("done", false)
+        .execute(&db)
+        .await
+        .unwrap_err();
+    assert_eq!(err.status_code(), 404);
+    assert!(Todo::get(&db, a.id).await.unwrap().unwrap().done);
 
     Todo::delete(&db, a.id).await.unwrap();
     let err = Todo::delete(&db, a.id).await.unwrap_err();

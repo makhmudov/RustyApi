@@ -185,6 +185,10 @@ impl IntoResponse for Error {
             Ok(err) => return err.into_response(),
             Err(other) => other,
         };
+        let other = match other.downcast::<crate::depends::RejectionError>() {
+            Ok(err) => return err.take().unwrap_or_else(internal_server_error),
+            Err(other) => other,
+        };
         let other = match other.downcast::<crate::db::DbError>() {
             Ok(err) => return err.into_response(),
             Err(other) => other,

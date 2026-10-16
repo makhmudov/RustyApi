@@ -8,3 +8,4 @@
 | Схемы, валидация, экстракторы | [ru/02-schemas.md](ru/02-schemas.md) | [en/02-schemas.md](en/02-schemas.md) |
 | OpenAPI, Swagger UI, ReDoc | [ru/03-openapi.md](ru/03-openapi.md) | [en/03-openapi.md](en/03-openapi.md) |
 | PostgreSQL и ORM | [ru/04-database.md](ru/04-database.md) | [en/04-database.md](en/04-database.md) |
+| Зависимости и авторизация | [ru/05-auth.md](ru/05-auth.md) | [en/05-auth.md](en/05-auth.md) |
