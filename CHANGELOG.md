@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.1.0] — подготовлена, ещё не опубликована на crates.io
+
 ### Added
 - Cargo workspace: `rustyapi`, `rustyapi-macros`, `rustyapi-cli`, `examples/todo_api`.
 - CI: fmt, clippy, тесты с PostgreSQL 16.
@@ -72,3 +74,13 @@
   - `Option<Auth>` — необязательная авторизация.
   - `tez generate client --ts`: TypeScript-клиент из OpenAPI.
   - Шаблоны `tez new` и `examples/todo_api` используют `TestClient`; todo_api читает `CORS_ORIGINS`.
+- Этап 8, качество и релиз:
+  - Бенчмарки против axum, actix-web и FastAPI (`benchmarks/`, отдельный workspace, `run.py` на `oha`).
+  - Access-лог и фоновые задачи — один tower-слой `CoreLayer` вместо двух `from_fn`: +8–15% rps.
+  - `Cache::redis`: таймауты подключения (1 с) и ответа (2 с) — после перезапуска Redis кэш
+    восстанавливается за секунды, а не висит до TCP-таймаута ОС.
+  - Clippy 1.99: `result_large_err` на `MultipartForm::read`.
+  - Документация «FastAPI → RustyAPI» и туториал на ru/uz/en; README с бенчмарками.
+  - `examples/production`: сокращатель ссылок (JWT, PostgreSQL, Redis, rate limit, `/health`,
+    фоновый счётчик), многоэтапный Dockerfile без apt-get, docker-compose со всем стеком.
+  - Метаданные крейтов для crates.io, версия 0.1.0, `RELEASE.md` с порядком публикации.

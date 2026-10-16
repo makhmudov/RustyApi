@@ -1,11 +1,15 @@
 [package]
 name = "rustyapi-cli"
-description = "CLI `tez` for RustyAPI: new / dev / run / migrate / generate / routes"
+description = "tez — the RustyAPI command line: new, dev (auto-reload), migrate, generate crud/client, routes"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+readme = "../README.md"
+keywords = ["cli", "web", "framework", "fastapi", "scaffolding"]
+categories = ["command-line-utilities", "development-tools", "web-programming::http-server"]
 
 [[bin]]
 name = "tez"

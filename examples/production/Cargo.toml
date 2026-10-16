@@ -1,0 +1,11 @@
+[package]
+name = "shortener"
+description = "Продакшен-пример RustyAPI: сокращатель ссылок (JWT, PostgreSQL, Redis, rate limit, Docker)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+rustyapi = { workspace = true, features = ["redis"] }

@@ -1,11 +1,15 @@
 [package]
 name = "rustyapi"
-description = "Веб-фреймворк на Rust в стиле FastAPI"
+description = "FastAPI-style web framework for Rust: route attributes, validated schemas, OpenAPI docs, PostgreSQL, JWT"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+readme = "../README.md"
+keywords = ["web", "framework", "fastapi", "openapi", "http"]
+categories = ["web-programming::http-server", "asynchronous"]
 
 [dependencies]
 rustyapi-macros.workspace = true

@@ -14,7 +14,7 @@ pub struct NewArgs {
     /// Зависимость rustyapi из локального каталога (для разработки самого фреймворка).
     #[arg(long, value_name = "DIR", conflicts_with = "rustyapi_version")]
     rustyapi_path: Option<PathBuf>,
-    /// Версия rustyapi с crates.io вместо git-репозитория.
+    /// Версия rustyapi с crates.io (по умолчанию — версия самого `tez`).
     #[arg(long, value_name = "VERSION")]
     rustyapi_version: Option<String>,
 }
@@ -47,9 +47,6 @@ pub enum GenerateCommand {
         target: crate::TargetArgs,
     },
 }
-
-/// Репозиторий, пока 0.1.0 не опубликован на crates.io.
-const RUSTYAPI_GIT: &str = "https://github.com/makhmudov/RustyApi";
 
 /// Подстановка `{{key}}` в шаблоне.
 fn render(template: &str, vars: &[(&str, &str)]) -> String {
@@ -137,7 +134,8 @@ pub fn new_project(args: NewArgs) -> Result<()> {
             format!("{{ path = {:?} }}", path.display().to_string())
         }
         (None, Some(version)) => format!("{version:?}"),
-        (None, None) => format!("{{ git = {RUSTYAPI_GIT:?} }}"),
+        // По умолчанию — та же версия с crates.io, что и у самого `tez`.
+        (None, None) => format!("{:?}", env!("CARGO_PKG_VERSION")),
     };
     let secret = random_secret();
     let vars = [

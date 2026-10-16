@@ -1,7 +1,7 @@
 # The `tez` CLI
 
 ```sh
-cargo install --path rustyapi-cli    # until 0.1.0 is on crates.io
+cargo install rustyapi-cli
 ```
 
 | Command | What it does |

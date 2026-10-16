@@ -18,8 +18,8 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 
 use axum::extract::{FromRequestParts, Request};
+use axum::http::StatusCode;
 use axum::http::request::Parts;
-use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 
 use crate::error::HTTPException;
@@ -106,22 +106,25 @@ impl<S: Send + Sync> FromRequestParts<S> for BackgroundTasks {
     }
 }
 
-/// Слой `App`: кладёт очередь в запрос и запускает задачи после успешного ответа.
-pub(crate) async fn layer(mut request: Request, next: Next) -> Response {
+/// Начало запроса: кладёт пустую очередь в extensions (вызывается слоем `App`).
+pub(crate) fn begin(request: &mut Request) -> BackgroundTasks {
     let tasks = BackgroundTasks::default();
     request.extensions_mut().insert(tasks.clone());
-    let response = next.run(request).await;
+    tasks
+}
+
+/// Конец запроса: запускает задачи, если ответ успешный (статус < 400), как в FastAPI.
+pub(crate) fn finish(tasks: BackgroundTasks, status: StatusCode) {
     let pending = tasks.take();
-    let status = response.status();
-    if !pending.is_empty() && !status.is_client_error() && !status.is_server_error() {
-        tokio::spawn(async move {
-            for task in pending {
-                // Паника одной задачи не отменяет следующие.
-                if let Err(error) = tokio::spawn(task).await {
-                    tracing::error!("Background task panicked: {error}");
-                }
-            }
-        });
+    if pending.is_empty() || status.is_client_error() || status.is_server_error() {
+        return;
     }
-    response
+    tokio::spawn(async move {
+        for task in pending {
+            // Паника одной задачи не отменяет следующие.
+            if let Err(error) = tokio::spawn(task).await {
+                tracing::error!("Background task panicked: {error}");
+            }
+        }
+    });
 }
